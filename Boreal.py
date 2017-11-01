@@ -11,9 +11,9 @@ class BorealSolver(object):
 
     def __init__(self, solver='glpk', tee=True):
         self.solver = solver
-        self.tee = True
-        self.x = None
+        self.tee = tee
         self.res = None
+        self.model = None
 
     def solveBoreal(self, data):
         model = ConcreteModel()
@@ -46,7 +46,7 @@ class BorealSolver(object):
 
         opt = SolverFactory(self.solver)
         self.res = opt.solve(model, tee=self.tee)
-        self.x = model.x
+        self.model = model
 
 
 if __name__ == '__main__':
