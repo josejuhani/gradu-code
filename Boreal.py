@@ -7,24 +7,21 @@ import os
 import pandas as pd
 
 
-class BorealSolver(object):
+class BorealModel(object):
 
-    def __init__(self, solver='glpk', tee=True):
-        self.solver = solver
-        self.tee = tee
+    def __init__(self, data):
         self._solved = False
         self.res = None
-        self.model = None
-
-    def solveBoreal(self, data):
         model = ConcreteModel()
+        # Number of lines in data
         model.n = Param(within=NonNegativeIntegers, initialize=len(data))
+        # Number of columns in data
         model.m = Param(within=NonNegativeIntegers, initialize=len(list(data)))
 
         model.I = RangeSet(0, model.n-1)
         model.J = RangeSet(0, model.m-1)
 
-        # Initialize all x_ij = 0.0, when j != 0, and all xi0 = 1.0
+        # Initialize all x_ij = 0.0, when j != 0, and all x_i0 = 1.0
         model.x = Var(model.I, model.J, domain=Binary, initialize=0.0)
         for i in model.I:
             model.x[i, 0].value = 1.0
@@ -36,7 +33,7 @@ class BorealSolver(object):
         model.c = Param(model.I, model.J, initialize=c_init)
 
         '''Objective function: Formulate problem as binary problem.
-        Product x_ij*c_ij over all the i:s and j:s'''
+        \sum_{i=1}^{n} \sum_{j=1}^{m} c_{ij}*x_{ij}'''
         def obj_fun(model):
             return sum(sum(model.x[i, j]*model.c[i, j]
                            for i in model.I)
@@ -44,16 +41,20 @@ class BorealSolver(object):
 
         model.OBJ = Objective(rule=obj_fun, sense=maximize)
 
-        ''' Constraint, so that every stand has only one handling
-        sum of x_ij for given i and  all j:s  equals 1'''
+        ''' Constraint: Given line i has only one 1
+        \sum_{i=1}^{n}x_{ij} = 1'''
         def const(model, i):
             return sum(model.x[i, j] for j in model.J) == 1
 
         model.Constraint1 = Constraint(model.I, rule=const)
 
-        opt = SolverFactory(self.solver)
-        self.res = opt.solve(model, tee=self.tee)
         self.model = model
+        self._modelled = True
+
+    def solve_model(self, solver='glpk', tee=True):
+        opt = SolverFactory(solver)
+        self.res = opt.solve(self.model, tee=tee)
+        self._solved = True
 
 
 if __name__ == '__main__':
@@ -62,6 +63,6 @@ if __name__ == '__main__':
     # Removes all lines containing Nan-values
     carbon_clean = carbon.dropna(axis=0, how='any')
     data = carbon_clean[:1000]
-    solver = BorealSolver()
-    solver.solveBoreal(data)
+    solver = BorealModel(data)
+    solver.solve_model()
     solver.model.x.display()
