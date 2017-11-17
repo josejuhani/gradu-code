@@ -78,6 +78,15 @@ def model_to_real_values(data, xtoc, model):
     return clusters_to_origin(data, xtoc, res_to_list(model))
 
 
+def values_to_list(problem, data):
+    lst = []
+    for i in problem.model.I:
+        for j in problem.model.J:
+            if problem.model.x[i, j].value == 1:
+                lst.append(data[i, j])
+    return lst
+
+
 def cluster(data, nclust, seed, delta=.0001, maxiter=100,
             metric='cosine', verbose=1):
     random.seed(seed)
