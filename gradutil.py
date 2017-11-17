@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import os
 import random
-import sklearn.preprocessing as pre
 
 from BorealWeights import BorealWeightedProblem
 from kmeans import kmeans, randomsample
@@ -31,7 +30,6 @@ def normalize(data):
     norm_data[inds] = np.take(np.nanmin(norm_data, axis=0)
                               - np.nanmax(norm_data, axis=0),
                               inds[1])
-    # norm_data = pre.normalize(norm_data, axis=0)
     norm_data -= np.min(norm_data, axis=0)
     with np.errstate(divide='ignore'):
         normax = np.max(norm_data, axis=0)
