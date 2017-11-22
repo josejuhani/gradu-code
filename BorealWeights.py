@@ -9,7 +9,9 @@ import numpy as np
 
 class BorealWeightedProblem(object):
 
-    def __init__(self, data, weights):
+    def __init__(self, data, weights=None):
+        if weights is None:
+            weights = np.ones(len(data))
         if len(data) != len(weights):
             print("Data and weights don't match in length")
             return(0)
