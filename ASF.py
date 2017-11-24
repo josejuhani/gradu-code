@@ -1,18 +1,19 @@
-from pyomo.environ import ConcreteModel, Param, RangeSet, Var
-from pyomo.environ import Objective, Constraint, NonNegativeIntegers
-from pyomo.environ import Binary, maximize
+from pyomo.environ import Objective, Param, minimize, NonNegativeIntegers
+from pyomo.environ import RangeSet
+from BorealWeights import BorealWeightedProblem
 
 
-class ASF():
+class ASF(BorealWeightedProblem):
 
-    def __init__(self, sub_model,  z_ideal, z_nadir, z_ref):
-        if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
-            print("Length of given vectors don't match")
-            return(0)
-        eps = -.0001
-        model = ConcreteModel()
-
-        # Copy the sub_model parameters to this model
+    def __init__(self, z_ideal, z_nadir, z_ref, data,
+                 weights=None, eps=-1, roo=2):
+        super().__init__(data, weights)
+        model = self.model
+        model.ideal = Param(initialize=z_ideal)
+        model.nadir = Param(initialize=z_nadir)
+        model.utopia = Param(initialize=z_ideal - eps)
+        model.ref = Param(initialize=z_ref)
+        model.roo = roo
 
         # Initialize ASF parameters
         model.k = Param(within=NonNegativeIntegers,
@@ -20,29 +21,27 @@ class ASF():
 
         model.H = RangeSet(1, model.k)
 
-        def init_ideal(model, h):
-            return z_ideal[h-1]
-
-        model.ideal = Param(model.H, initialize=init_ideal)
-
-        def init_nadir(model, h):
-            return z_nadir[h-1]
-
-        model.nadir = Param(model.H, initialize=z_nadir)
-
-        def init_utopia(model, h):
-            return z_ideal[h-1] - eps
-
-        model.utopia = Param(model.H, initialize=z_ideal - eps)
-
-        def init_ref(model, h):
-            return z_ref[h-1]
-        model.ref = Param(model.H, initialize=init_ref)
-
+        # Integrate all four objectives in this..
+        
         def obj_fun(model):
-            NotImplemented
-
-        model.OBJ = Objective(rule=obj_fun, sense=maximize)
+            A = (self.obj_fun(model) - model.ref)/(model.nadir-model.utopia)
+            return A - model.roo
+        del model.OBJ  # Delete previous Objective to suppress warnings
+        model.OBJ = Objective(rule=obj_fun, sense=minimize)
 
         self.model = model
         self._modelled = True
+
+
+if __name__ == '__main__':
+    from gradutil import init_boreal, nan_to_bau, ideal, nadir, values_to_list
+    revenue, _, _, _ = init_boreal()
+    data = nan_to_bau(revenue).values
+    ideal = ideal()['revenue']
+    nadir = nadir()['revenue']
+    ref = 100000000
+    asf = ASF(ideal, nadir, ref, data)
+    from pyomo.opt import SolverFactory
+    opt = SolverFactory('glpk')
+    opt.solve(asf.model)
+    print(sum(values_to_list(asf, data)))
