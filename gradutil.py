@@ -8,6 +8,10 @@ from kmeans import kmeans, randomsample
 from pyomo.opt import SolverFactory
 
 
+def nan_to_bau(frame):
+    return frame.transpose().fillna(frame.iloc[:, 0]).transpose()
+
+
 def real_solutions():
     return {'revenue': 249966739.00009939,
             'deadwood': 218153.21549812937,
