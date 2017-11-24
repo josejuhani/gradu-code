@@ -43,14 +43,7 @@ class BorealWeightedProblem(object):
 
         model.w = Param(model.I, initialize=w_init)
 
-        '''Objective function: Formulate problem as binary problem.
-        \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
-        def obj_fun(model):
-            return sum(sum(model.x[i, j]*model.c[i, j]*model.w[i]
-                           for i in model.I)
-                       for j in model.J)
-
-        model.OBJ = Objective(rule=obj_fun, sense=maximize)
+        model.OBJ = Objective(rule=self.obj_fun, sense=maximize)
 
         ''' Constraint: Given line i has only one 1
         \sum_{i=1}^{n}x_{ij} = 1'''
@@ -61,6 +54,13 @@ class BorealWeightedProblem(object):
 
         self.model = model
         self._modelled = True
+
+    '''Objective function: Formulate problem as binary problem.
+    \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
+    def obj_fun(self, model):
+        return sum(sum(model.x[i, j]*model.c[i, j]*model.w[i]
+                       for i in model.I)
+                   for j in model.J)
 
 
 if __name__ == '__main__':
