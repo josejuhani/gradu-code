@@ -1,47 +1,75 @@
 from pyomo.environ import Objective, Param, minimize, NonNegativeIntegers
 from pyomo.environ import RangeSet
 from BorealWeights import BorealWeightedProblem
+import numpy as np
 
 
 class ASF(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data,
                  weights=None, eps=-1, roo=2):
-        super().__init__(data, weights)
+        if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
+            print("Length of given vectors don't match")
+            return
+        super().__init__(data, weights, False)
         model = self.model
-        model.ideal = Param(initialize=z_ideal)
-        model.nadir = Param(initialize=z_nadir)
-        model.utopia = Param(initialize=z_ideal - eps)
-        model.ref = Param(initialize=z_ref)
-        model.roo = roo
 
         # Initialize ASF parameters
         model.k = Param(within=NonNegativeIntegers,
                         initialize=len(z_ideal))
+        model.H = RangeSet(0, model.k-1)
 
-        model.H = RangeSet(1, model.k)
+        def init_ideal(model, h):
+            return z_ideal[h]
+        model.ideal = Param(model.H, initialize=init_ideal)
 
-        # Integrate all four objectives in this..
-        
-        def obj_fun(model):
-            A = (self.obj_fun(model) - model.ref)/(model.nadir-model.utopia)
-            return A - model.roo
-        del model.OBJ  # Delete previous Objective to suppress warnings
-        model.OBJ = Objective(rule=obj_fun, sense=minimize)
+        def init_nadir(model, h):
+            return z_nadir[h]
+        model.nadir = Param(model.H, initialize=init_nadir)
+
+        def init_utopia(model, h):
+            return z_ideal[h] - eps
+        model.utopia = Param(model.H, initialize=init_utopia)
+
+        def init_ref(model, h):
+            return z_ref[h]
+        model.ref = Param(model.H, initialize=init_ref)
+        model.roo = roo
+
+        def asf_fun(model):
+            ''' Maximum function doesn't work with pyomo, so some way to
+            circulate that must be found'''
+            return np.max([np.divide(np.subtract(self.obj_fun(model, data)[h],
+                                                 model.ideal[h]),
+                                     model.nadir[h] - model.utopia[h])
+                           for h in model.H]) \
+                + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
+                                           model.nadir[h] - model.utopia[h])
+                                 for h in model.H])
+        if hasattr(model, 'OBJ'):
+            del model.OBJ  # Delete previous Objective to suppress warnings
+        model.OBJ = Objective(rule=asf_fun, sense=minimize)
 
         self.model = model
         self._modelled = True
 
 
 if __name__ == '__main__':
-    from gradutil import init_boreal, nan_to_bau, ideal, nadir, values_to_list
-    revenue, _, _, _ = init_boreal()
+    from gradutil import init_boreal, nan_to_bau, \
+        ideal, nadir, values_to_list, normalize
+    revenue, carbon, deadwood, ha = init_boreal()
+    ind = 10
+    x = np.dstack((normalize(nan_to_bau(revenue[:ind]).values),
+                   normalize(nan_to_bau(carbon[:ind]).values),
+                   normalize(nan_to_bau(deadwood[:ind]).values),
+                   normalize(nan_to_bau(ha[:ind]).values)))
+    # X = normalize(x)
     data = nan_to_bau(revenue).values
-    ideal = ideal()['revenue']
-    nadir = nadir()['revenue']
-    ref = 100000000
-    asf = ASF(ideal, nadir, ref, data)
+    ide = ideal(False)
+    nad = nadir(False)
+    ref = np.array((100000000, 30000, 150000, 10000))
+    asf = ASF(ide, nad, ref, x)
     from pyomo.opt import SolverFactory
     opt = SolverFactory('glpk')
     opt.solve(asf.model)
-    print(sum(values_to_list(asf, data)))
+    print(np.sum(values_to_list(asf, x), axis=0))
