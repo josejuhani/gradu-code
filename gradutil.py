@@ -12,18 +12,30 @@ def nan_to_bau(frame):
     return frame.transpose().fillna(frame.iloc[:, 0]).transpose()
 
 
-def ideal():
-    return {'revenue': 249966739.00009939,
-            'deadwood': 218153.21549812937,
-            'ha': 20225.257707161425,
-            'carbon': 4449001.4721100219}
+def ideal(dictionary=True):
+    if dictionary:
+        return {'revenue': 249966739.00009939,
+                'deadwood': 218153.21549812937,
+                'ha': 20225.257707161425,
+                'carbon': 4449001.4721100219}
+    else:
+        return np.array((249966739.00009939,
+                         218153.21549812937,
+                         20225.257707161425,
+                         4449001.4721100219))
 
 
-def nadir():
-    return {'revenue': 3.09084573e+07,
-            'carbon': 2.83139915e+06,
-            'deadwood': 8.02116726e+04,
-            'ha': 1.19880519e+04}
+def nadir(dictionary=True):
+    if dictionary:
+        return {'revenue': 3.09084573e+07,
+                'carbon': 2.83139915e+06,
+                'deadwood': 8.02116726e+04,
+                'ha': 1.19880519e+04}
+    else:
+        return np.array((3.09084573e+07,
+                         2.83139915e+06,
+                         8.02116726e+04,
+                         1.19880519e+04))
 
 
 def init_boreal():
