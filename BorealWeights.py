@@ -9,7 +9,7 @@ import numpy as np
 
 class BorealWeightedProblem(object):
 
-    def __init__(self, data, weights=None):
+    def __init__(self, data, weights=None, objective=True):
         if weights is None:
             weights = np.ones(len(data))
         if len(data) != len(weights):
@@ -43,7 +43,8 @@ class BorealWeightedProblem(object):
 
         model.w = Param(model.I, initialize=w_init)
 
-        model.OBJ = Objective(rule=self.obj_fun, sense=maximize)
+        if objective:
+            model.OBJ = Objective(rule=self.obj_fun, sense=maximize)
 
         ''' Constraint: Given line i has only one 1
         \sum_{i=1}^{n}x_{ij} = 1'''
@@ -57,10 +58,16 @@ class BorealWeightedProblem(object):
 
     '''Objective function: Formulate problem as binary problem.
     \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
-    def obj_fun(self, model):
-        return sum(sum(model.x[i, j]*model.c[i, j]*model.w[i]
-                       for i in model.I)
-                   for j in model.J)
+    def obj_fun(self, model, c=None, w=None):
+        if c is None:
+            c = model.c
+        if w is None:
+            w = model.w
+        return np.sum((np.sum((np.multiply(model.x[i, j], c[i, j]*w[i])
+                               for i in model.I),
+                              axis=0)
+                      for j in model.J),
+                      axis=0)
 
 
 if __name__ == '__main__':
@@ -77,4 +84,4 @@ if __name__ == '__main__':
     problem = BorealWeightedProblem(data, weights)
     opt = SolverFactory('glpk')
     res = opt.solve(problem.model, True)
-    problem.model.x.display()
+    # problem.model.x.display()
