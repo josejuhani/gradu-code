@@ -1,5 +1,5 @@
 from pyomo.environ import Objective, Param, minimize, NonNegativeIntegers
-from pyomo.environ import RangeSet
+from pyomo.environ import RangeSet, Constraint, Var
 from BorealWeights import BorealWeightedProblem
 import numpy as np
 
@@ -36,16 +36,25 @@ class ASF(BorealWeightedProblem):
         model.ref = Param(model.H, initialize=init_ref)
         model.roo = roo
 
+        model.maximum = Var()
+
+        def const(model, h):
+            ''' Constraint: The new "maximum" variable, that will be minimized
+            in the optimization, must be greater than any of the original
+            divisions used in original ASF formulation.'''
+            return model.maximum >= \
+                np.divide(np.subtract(self.obj_fun(model, data)[h],
+                                      model.ideal[h]),
+                          model.nadir[h] - model.utopia[h])
+
+        model.ConstraintMax = Constraint(model.H, rule=const)
+
         def asf_fun(model):
-            ''' Maximum function doesn't work with pyomo, so some way to
-            circulate that must be found'''
-            return np.max([np.divide(np.subtract(self.obj_fun(model, data)[h],
-                                                 model.ideal[h]),
-                                     model.nadir[h] - model.utopia[h])
-                           for h in model.H]) \
+            return model.maximum \
                 + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
                                            model.nadir[h] - model.utopia[h])
                                  for h in model.H])
+
         if hasattr(model, 'OBJ'):
             del model.OBJ  # Delete previous Objective to suppress warnings
         model.OBJ = Objective(rule=asf_fun, sense=minimize)
@@ -63,7 +72,10 @@ if __name__ == '__main__':
                    normalize(nan_to_bau(carbon[:ind]).values),
                    normalize(nan_to_bau(deadwood[:ind]).values),
                    normalize(nan_to_bau(ha[:ind]).values)))
-    # X = normalize(x)
+    X = np.dstack((nan_to_bau(revenue[:ind]).values,
+                   nan_to_bau(carbon[:ind]).values,
+                   nan_to_bau(deadwood[:ind]).values,
+                   nan_to_bau(ha[:ind]).values))
     data = nan_to_bau(revenue).values
     ide = ideal(False)
     nad = nadir(False)
@@ -72,4 +84,4 @@ if __name__ == '__main__':
     from pyomo.opt import SolverFactory
     opt = SolverFactory('glpk')
     opt.solve(asf.model)
-    print(np.sum(values_to_list(asf, x), axis=0))
+    print(np.sum(values_to_list(asf, X), axis=0))
