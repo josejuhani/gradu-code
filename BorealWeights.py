@@ -46,9 +46,9 @@ class BorealWeightedProblem(object):
         if objective:
             model.OBJ = Objective(rule=self.obj_fun, sense=maximize)
 
-        ''' Constraint: Given line i has only one 1
-        \sum_{i=1}^{n}x_{ij} = 1'''
         def const(model, i):
+            ''' Constraint: Given line i has only one 1
+            \sum_{i=1}^{n}x_{ij} = 1'''
             return sum(model.x[i, j] for j in model.J) == 1
 
         model.Constraint1 = Constraint(model.I, rule=const)
@@ -56,9 +56,9 @@ class BorealWeightedProblem(object):
         self.model = model
         self._modelled = True
 
-    '''Objective function: Formulate problem as binary problem.
-    \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
     def obj_fun(self, model, c=None, w=None):
+        '''Objective function: Formulate problem as binary problem.
+        \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
         if c is None:
             c = model.c
         if w is None:
