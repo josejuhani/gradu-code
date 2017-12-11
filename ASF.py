@@ -6,8 +6,8 @@ import numpy as np
 
 class ASF(BorealWeightedProblem):
 
-    def __init__(self, z_ideal, z_nadir, z_ref, data,
-                 weights=None, eps=-1, roo=2):
+    def __init__(self, z_ideal, z_nadir, z_ref, data, scalarization='ASF',
+                 weights=None, eps=-1, roo=0.1):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
@@ -21,38 +21,50 @@ class ASF(BorealWeightedProblem):
 
         def init_ideal(model, h):
             return z_ideal[h]
-        model.ideal = Param(model.H, initialize=init_ideal)
 
         def init_nadir(model, h):
             return z_nadir[h]
-        model.nadir = Param(model.H, initialize=init_nadir)
 
         def init_utopia(model, h):
             return z_ideal[h] - eps
-        model.utopia = Param(model.H, initialize=init_utopia)
 
         def init_ref(model, h):
             return z_ref[h]
-        model.ref = Param(model.H, initialize=init_ref)
+
         model.roo = roo
+
+        scalarization = scalarization.upper()
+
+        if scalarization == 'GUESS':
+            model.z1 = Param(model.H, initialize=init_nadir)
+            model.z2 = Param(model.H, initialize=init_nadir)
+            model.z3 = Param(model.H, initialize=init_ref)
+        elif scalarization == 'STOM':
+            model.z1 = Param(model.H, initialize=init_utopia)
+            model.z2 = Param(model.H, initialize=init_ref)
+            model.z3 = Param(model.H, initialize=init_utopia)
+        else:  # scalarization == 'ASF'
+            model.z1 = Param(model.H, initialize=init_ref)
+            model.z2 = Param(model.H, initialize=init_nadir)
+            model.z3 = Param(model.H, initialize=init_utopia)
 
         model.maximum = Var()
 
-        def const(model, h):
+        def minmaxconst(model, h):
             ''' Constraint: The new "maximum" variable, that will be minimized
             in the optimization, must be greater than any of the original
             divisions used in original ASF formulation.'''
             return model.maximum >= \
                 np.divide(np.subtract(self.obj_fun(model, data)[h],
-                                      model.ideal[h]),
-                          model.nadir[h] - model.utopia[h])
+                                      model.z1[h]),
+                          model.z2[h] - model.z3[h])
 
-        model.ConstraintMax = Constraint(model.H, rule=const)
+        model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
 
         def asf_fun(model):
             return model.maximum \
                 + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
-                                           model.nadir[h] - model.utopia[h])
+                                           model.z2[h] - model.z3[h])
                                  for h in model.H])
 
         if hasattr(model, 'OBJ'):
@@ -79,9 +91,9 @@ if __name__ == '__main__':
     data = nan_to_bau(revenue).values
     ide = ideal(False)
     nad = nadir(False)
-    ref = np.array((100000000, 30000, 150000, 10000))
+    ref = np.array((0, 6, 3, 8))
     asf = ASF(ide, nad, ref, x)
     from pyomo.opt import SolverFactory
-    opt = SolverFactory('glpk')
-    opt.solve(asf.model)
-    print(np.sum(values_to_list(asf, X), axis=0))
+    opt = SolverFactory('cplex')
+    opt.solve(asf.model, tee=True)
+    print(np.sum(values_to_list(asf, x), axis=0))
