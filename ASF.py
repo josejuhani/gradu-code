@@ -75,6 +75,71 @@ class ASF(BorealWeightedProblem):
         self._modelled = True
 
 
+class NIMBUS(BorealWeightedProblem):
+
+    def __init__(self, z_ideal, z_nadir, z_ref, data, to_min, to_better,
+                 weights=None, eps=-1, roo=0.1):
+        if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
+            print("Length of given vectors don't match")
+            return
+        super().__init__(data, weights, False)
+        model = self.model
+
+        model.k = Param(within=NonNegativeIntegers,
+                        initialize=len(to_min))
+        model.l = Param(within=NonNegativeIntegers,
+                        initialize=len(to_better))
+        model.a = Param(within=NonNegativeIntegers,
+                        initialize=len(z_ref))
+
+        model.E = RangeSet(0, model.a-1)
+        model.G = RangeSet(0, model.l-1)
+        model.H = RangeSet(0, model.k-1)
+
+        def init_ideal(model, h):
+            return z_ideal[h]
+        model.ideal = Param(model.E, initialize=init_ideal)
+
+        def init_nadir(model, h):
+            return z_nadir[h]
+        model.nadir = Param(model.E, initialize=init_nadir)
+
+        def init_utopia(model, h):
+            return z_ideal[h] - eps
+        model.utopia = Param(model.E, initialize=init_utopia)
+
+        def init_ref(model, h):
+            return z_ref[h]
+        model.ref = Param(model.E, initialize=init_ref)
+
+        model.roo = roo
+        model.maximum = Var()
+
+        def minmaxconst(model, h):
+            ''' Constraint: The new "maximum" variable, that will be minimized
+            in the optimization, must be greater than any of the original
+            divisions used in original ASF formulation.'''
+            return model.maximum >= \
+                np.divide(np.subtract(self.obj_fun(model, data)[h],
+                                      model.z1[h]),
+                          model.z2[h] - model.z3[h])
+
+        model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
+
+        def asf_fun(model):
+            return model.maximum \
+                + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
+                                           model.z2[h] - model.z3[h])
+                                 for h in model.H])
+
+        if hasattr(model, 'OBJ'):
+            del model.OBJ  # Delete previous Objective to suppress warnings
+        model.OBJ = Objective(rule=asf_fun, sense=minimize)
+
+        self.model = model
+        self._modelled = True
+
+
 if __name__ == '__main__':
     from gradutil import init_boreal, nan_to_bau, \
         ideal, nadir, values_to_list, normalize
