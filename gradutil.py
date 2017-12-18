@@ -141,6 +141,27 @@ def cNopt(orig_data, clust_data, opt_data, opt, nclust='10', seed=2):
     return res1, res2, res3, res4
 
 
+def calc_ideal_n_nadir(data, xtoc=None, weights=None):
+    '''
+    Calculate ideal and nadir from the data where different
+    objectives are at the "last" level
+    '''
+    solver = SolverFactory('glpk')
+    problems = []
+    for i in range(np.shape(data)[-1]):
+        problems.append(BorealWeightedProblem(data[:, :, i]))
+
+    for j in range(len(problems)):
+        solver.solve(problems[j].model)
+
+    payoff = [[np.sum(values_to_list(problems[j], data[:, :, i]))
+               for i in range(np.shape(data)[-1])]
+              for j in range(len(problems))]
+    ideal = np.max(payoff, axis=0)
+    nadir = np.min(payoff, axis=0)
+    return ideal, nadir
+
+
 if __name__ == '__main__':
     seed = 2
     nclust = 50
