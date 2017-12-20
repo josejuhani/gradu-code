@@ -119,7 +119,7 @@ class ReferenceFrame():
 if __name__ == '__main__':
     from gradutil import ideal
     ide = ideal(False)
-    kehys = frame()
+    kehys = ReferenceFrame()
     kehys.cluster()
     ref = np.array((0, 0, ide[2], 0))
     kehys.solve(ref)
