@@ -14,7 +14,7 @@ class BorealWeightedProblem(object):
             weights = np.ones(len(data))
         if len(data) != len(weights):
             print("Data and weights don't match in length")
-            return(0)
+            exit(1)
         model = ConcreteModel()
         # Number of lines in data
         model.n = Param(within=NonNegativeIntegers,
