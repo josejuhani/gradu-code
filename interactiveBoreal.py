@@ -6,10 +6,11 @@ from ASF import ASF
 
 
 class ReferenceFrame():
-    def __init__(self):
+    def __init__(self, stock_ideal=True):
         ''' Initialize the Boreal Forest problem. Reads the data from
         the files to the variables and normalizes the data to the 0-1
-        scale.
+        scale. Sets ideal and nadir values either from the stock (stock_ideal)
+        or calculates them (which takes about 15 min)
         Variabels available after initialization:
         x:            original revenue, carbon, deadwood and ha values
                       in one 29666 x 28 array
@@ -19,6 +20,8 @@ class ReferenceFrame():
                       column wise
         x_norm_stack: same as x_stack but values normalized to 0-1
                       scale column wise
+        ideal:        Ideal vector of the problem
+        nadir:        Nadir vector of the problem
         '''
         revenue, carbon, deadwood, ha = gradutil.init_boreal()
         n_revenue = gradutil.nan_to_bau(revenue)
@@ -31,6 +34,12 @@ class ReferenceFrame():
 
         self.x_norm = gradutil.normalize(self.x.values)
         self.x_norm_stack = gradutil.normalize(self.x_stack)
+
+        if stock_ideal:
+            self.ideal = gradutil.ideal(False)
+            self.nadir = gradutil.nadir(False)
+        else:
+            self.ideal, self.nadir = gradutil.calc_ideal_n_nadir(self.x_stack)
 
     def cluster(self, clustdata=None, outdata=None, nclust=50,
                 seedn=1, verbose=0):
@@ -46,6 +55,7 @@ class ReferenceFrame():
         verbose   verbosity of used kmeans algorithm, default 0: 0 no output,
                   2 extensive output
         "Saves" variables xtoc, dist, weights and centers
+
         return centers, weights and xtoc
         '''
         if clustdata is None:
@@ -88,11 +98,15 @@ class ReferenceFrame():
         if weights is None:
             weights = self.weights
         if ideal is None:
-            ideal = gradutil.ideal(False)
+            ideal = self.ideal
         if nadir is None:
-            nadir = gradutil.nadir(False)
+            nadir = self.nadir
         opt = SolverFactory(solver)
-        self.SF = ASF(ideal, nadir, ref, data, weights=weights,
+        self.SF = ASF(ideal,
+                      nadir,
+                      ref,
+                      data,
+                      weights=weights,
                       scalarization=scalarization)
         opt.solve(self.SF.model)
         return self.SF
@@ -117,10 +131,28 @@ class ReferenceFrame():
 
 
 if __name__ == '__main__':
+    from time import time
     from gradutil import ideal
+    start = time()
+    print('Started')
+    print('Initalizing...')
     ide = ideal(False)
     kehys = ReferenceFrame()
-    kehys.cluster()
+    print('Initalized. Time since start {} sec'.format(time()-start))
+    print('Clustering...')
+    kehys.cluster(nclust=150)
+    print('Clustered. Time since start {} sec'.format(time()-start))
     ref = np.array((0, 0, ide[2], 0))
-    kehys.solve(ref)
-    print(kehys.values())
+    print('Solving...')
+    asf = kehys.solve(ref)
+    print('Solved 1/3.  Time since start {} sec'.format(time()-start))
+    stom = kehys.solve(ref, scalarization='stom')
+    print('Solved 2/3.  Time since start {} sec'.format(time()-start))
+    guess = kehys.solve(ref, scalarization='guess')
+    print('Solved 3/3.')
+    print('Optimization done. Time since start {} sec'.format(time()-start))
+
+    print('Using ideal: {} and nadir: {}'.format(kehys.ideal, kehys.nadir))
+    print(kehys.values(model=asf.model))
+    print(kehys.values(model=stom.model))
+    print(kehys.values(model=guess.model))
