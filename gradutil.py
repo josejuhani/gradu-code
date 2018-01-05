@@ -155,7 +155,7 @@ def calc_ideal_n_nadir(data, xtoc=None, weights=None):
         solver.solve(problems[j].model)
 
     if xtoc is None:
-        payoff = [[np.sum(values_to_list(problems[j], data[:, :, 1]))
+        payoff = [[np.sum(values_to_list(problems[j], data[:, :, i]))
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
     else:
