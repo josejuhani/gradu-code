@@ -11,6 +11,7 @@ class ASF(BorealWeightedProblem):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
+
         super().__init__(data, weights, False)
         model = self.model
 
@@ -53,7 +54,7 @@ class ASF(BorealWeightedProblem):
         def minmaxconst(model, h):
             ''' Constraint: The new "maximum" variable, that will be minimized
             in the optimization, must be greater than any of the original
-            divisions used in original ASF formulation.'''
+            divisions used in original problem formulation.'''
             return model.maximum >= \
                 np.divide(np.subtract(self.obj_fun(model, data)[h],
                                       model.z1[h]),
@@ -77,43 +78,51 @@ class ASF(BorealWeightedProblem):
 
 class NIMBUS(BorealWeightedProblem):
 
-    def __init__(self, z_ideal, z_nadir, z_ref, data, to_min, to_better,
+    def __init__(self, z_ideal, z_nadir, z_ref, upper_limits, data,
                  weights=None, eps=-1, roo=0.1):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
+
         super().__init__(data, weights, False)
+
         model = self.model
 
         model.k = Param(within=NonNegativeIntegers,
-                        initialize=len(to_min))
-        model.l = Param(within=NonNegativeIntegers,
-                        initialize=len(to_better))
-        model.a = Param(within=NonNegativeIntegers,
                         initialize=len(z_ref))
 
-        model.E = RangeSet(0, model.a-1)
-        model.G = RangeSet(0, model.l-1)
         model.H = RangeSet(0, model.k-1)
 
         def init_ideal(model, h):
             return z_ideal[h]
-        model.ideal = Param(model.E, initialize=init_ideal)
+        model.ideal = Param(model.H, initialize=init_ideal)
 
         def init_nadir(model, h):
             return z_nadir[h]
-        model.nadir = Param(model.E, initialize=init_nadir)
+        model.nadir = Param(model.H, initialize=init_nadir)
 
         def init_utopia(model, h):
             return z_ideal[h] - eps
-        model.utopia = Param(model.E, initialize=init_utopia)
+        model.utopia = Param(model.H, initialize=init_utopia)
 
         def init_ref(model, h):
             return z_ref[h]
-        model.ref = Param(model.E, initialize=init_ref)
+        model.ref = Param(model.H, initialize=init_ref)
+
+        def init_upper(model, h):
+            return upper_limits[h]
+        model.upper_limits = Param(model.H, initialize=init_upper)
 
         model.roo = roo
         model.maximum = Var()
+
+        def nimbusconst(model, h):
+            ''' Nimbus constraint: Just set upper limits for all the objectives.
+            Works when all the upper limits set properly according to the
+            Nimbus method'''
+            return self.obj_fun(model, data)[h] <= model.upper_limits[h]
+
+        model.ConstraintNimbus = Constraint(model.H, rule=nimbusconst)
 
         def minmaxconst(model, h):
             ''' Constraint: The new "maximum" variable, that will be minimized
@@ -121,15 +130,15 @@ class NIMBUS(BorealWeightedProblem):
             divisions used in original ASF formulation.'''
             return model.maximum >= \
                 np.divide(np.subtract(self.obj_fun(model, data)[h],
-                                      model.z1[h]),
-                          model.z2[h] - model.z3[h])
+                                      model.ref[h]),
+                          model.nadir[h] - model.utopia[h])
 
         model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
 
         def asf_fun(model):
             return model.maximum \
                 + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
-                                           model.z2[h] - model.z3[h])
+                                           model.nadir[h] - model.utopia[h])
                                  for h in model.H])
 
         if hasattr(model, 'OBJ'):
