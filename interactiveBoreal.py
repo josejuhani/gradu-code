@@ -66,7 +66,8 @@ class ReferenceFrame():
                                                         nclust,
                                                         seedn,
                                                         verbose=verbose)
-        self.weights = np.array([sum(self.xtoc == i)
+        total_weight = len(clustdata)
+        self.weights = np.array([sum(self.xtoc == i)/total_weight
                                  for i in range(nclust)])
 
         self.centers = np.array([outdata[self.xtoc == i].mean(axis=0)
@@ -76,9 +77,9 @@ class ReferenceFrame():
 
     def solve(self, ref, data=None, weights=None,
               ideal=None, nadir=None,
-              scalarization='ASF', solver='glpk'):
-        ''' Solve the scalarization problem using given reference point and additional
-        parameters
+              scalarization='ASF', solver='cplex'):
+        ''' Solve the scalarization problem using given reference point and
+        additional parameters
         data          Data used in creating problem,
                       default self.centers (from clustering)
         weights       Weights for the data,
