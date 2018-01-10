@@ -54,7 +54,7 @@ def normalize(data):
                               - np.nanmax(norm_data, axis=0),
                               inds[1])
     norm_data -= np.min(norm_data, axis=0)
-    with np.errstate(divide='ignore'):
+    with np.errstate(invalid='ignore'):
         normax = np.max(norm_data, axis=0)
         norm_data = np.where(normax != 0., norm_data / normax, 0)
     return norm_data
