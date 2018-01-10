@@ -2,7 +2,7 @@ import gradutil
 from pyomo.opt import SolverFactory
 import numpy as np
 import pandas as pd
-from ASF import ASF
+from ASF import ASF, NIMBUS
 
 
 class ReferenceFrame():
@@ -154,6 +154,37 @@ if __name__ == '__main__':
 
     logger.info('Optimization done. Time since start {:2.0f} sec'.
                 format(time()-start))
-    logger.info('ASF: {}'.format(kehys.values(model=asf.model)))
-    logger.info('STOM: {}'.format(kehys.values(model=stom.model)))
-    logger.info('GUESS: {}'.format(kehys.values(model=guess.model)))
+
+    asf_values = kehys.values(model=asf.model)
+    stom_values = kehys.values(model=stom.model)
+    guess_values = kehys.values(model=guess.model)
+
+    logger.info('ASF: {}'.format(asf_values))
+    logger.info('STOM: {}'.format(stom_values))
+    logger.info('GUESS: {}'.format(guess_values))
+
+    logger.info('Solving NIMBUS...')
+
+    ''' Lets set upper limits so, that starting from the asf-result of the
+    previous problem,
+    the first objective should improve,
+    the second should stay the same,
+    the third should detorate to a limit and
+    the fourth can alter however it wants.'''
+    nimbus_ref = np.array((kehys.ideal[0],
+                           asf_values[1],
+                           1.0e+05,
+                           kehys.nadir[3]))
+    to_minmax = np.array([0, 1])
+    to_stay = np.array(())
+    to_detoriate = np.array([2])
+    limits = np.array((asf_values[0], asf_values[1], 1.0e+05))
+
+    nimbus = NIMBUS(ideal, nadir, nimbus_ref, data,
+                    to_minmax, to_stay, to_detoriate, weights=weights)
+    nimbus_solver = Solver(NIMBUS.model)
+    nimbus_solver.solve()
+    nimbus_values = kehys.values(model=nimbus.model)
+    logger.info('NIMBUS solved. Time since start {:2.0f} sec'.
+                format(time()-start))
+    logger.info('NIMBUS: {}'.format(nimbus_values))
