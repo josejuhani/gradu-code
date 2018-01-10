@@ -75,43 +75,6 @@ class ReferenceFrame():
 
         return self.centers, self.weights, self.xtoc
 
-    def solve(self, ref, data=None, weights=None,
-              ideal=None, nadir=None,
-              scalarization='ASF', solver='cplex'):
-        ''' Solve the scalarization problem using given reference point and
-        additional parameters
-        data          Data used in creating problem,
-                      default self.centers (from clustering)
-        weights       Weights for the data,
-                      default self.weight (from clustering)
-        ideal         Ideal point, default ideal for the original boreal data
-        nadir         Nadir point, default nadir for the original boreal data
-        scalarization Scalarization used to calculate point corresponding to
-                      reference point, options 'STOM', 'GUESS' and 'ASF',
-                      defaul 'ASF'
-        solver        Solver used for solving the optimization problem,
-                      default 'glpk'
-        After runnig (self)SF.model formed and solved.
-        Returns the problem class (ASF class)
-        '''
-        if data is None:
-            data = self.centers
-        if weights is None:
-            weights = self.weights
-        if ideal is None:
-            ideal = self.ideal
-        if nadir is None:
-            nadir = self.nadir
-        opt = SolverFactory(solver)
-        self.SF = ASF(ideal,
-                      nadir,
-                      ref,
-                      data,
-                      weights=weights,
-                      scalarization=scalarization)
-        opt.solve(self.SF.model)
-        return self.SF
-
     def values(self, data=None, xtoc=None, model=None):
         ''' Gives numerical values for a solved model, corresponding data and
         xtoc vector.
@@ -129,6 +92,17 @@ class ReferenceFrame():
         if model is None:
             model = self.SF.model
         return gradutil.model_to_real_values(data, xtoc, model)
+
+
+class Solver():
+
+    def __init__(self, model, solver='cplex'):
+        self.solver = solver
+        self.model = model
+        self.opt = SolverFactory(solver)
+
+    def solve(self):
+        return self.opt.solve(self.model)
 
 
 if __name__ == '__main__':
@@ -152,14 +126,32 @@ if __name__ == '__main__':
     logger.info('Using ideal: {} and nadir: {}'.
                 format(kehys.ideal, kehys.nadir))
     logger.info('Solving...')
-    asf = kehys.solve(ref)
+
+    data = kehys.centers
+    weights = kehys.weights
+    ideal = kehys.ideal
+    nadir = kehys.nadir
+    solver_name = 'cplex'
+
+    asf = ASF(ideal, nadir, ref, data, weights=weights, scalarization='asf')
+    stom = ASF(ideal, nadir, ref, data, weights=weights, scalarization='stom')
+    guess = ASF(ideal, nadir, ref, data, weights=weights,
+                scalarization='guess')
+
+    asf_solver = Solver(asf.model)
+    asf_solver.solve()
     logger.info('Solved 1/3.  Time since start {:2.0f} sec'.
                 format(time()-start))
-    stom = kehys.solve(ref, scalarization='stom')
+
+    stom_solver = Solver(stom.model)
+    stom_solver.solve()
     logger.info('Solved 2/3.  Time since start {:2.0f} sec'.
                 format(time()-start))
-    guess = kehys.solve(ref, scalarization='guess')
+
+    guess_solver = Solver(guess.model)
+    guess_solver.solve()
     logger.info('Solved 3/3.')
+
     logger.info('Optimization done. Time since start {:2.0f} sec'.
                 format(time()-start))
     logger.info('ASF: {}'.format(kehys.values(model=asf.model)))
