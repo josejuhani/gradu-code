@@ -132,27 +132,35 @@ class ReferenceFrame():
 
 if __name__ == '__main__':
     from time import time
-    from gradutil import ideal
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
     start = time()
-    print('Started')
-    print('Initalizing...')
-    ide = ideal(False)
+    logger.info('Started')
+    logger.info('Initializing...')
     kehys = ReferenceFrame()
-    print('Initalized. Time since start {} sec'.format(time()-start))
-    print('Clustering...')
-    kehys.cluster(nclust=150)
-    print('Clustered. Time since start {} sec'.format(time()-start))
-    ref = np.array((0, 0, ide[2], 0))
-    print('Solving...')
-    asf = kehys.solve(ref)
-    print('Solved 1/3.  Time since start {} sec'.format(time()-start))
-    stom = kehys.solve(ref, scalarization='stom')
-    print('Solved 2/3.  Time since start {} sec'.format(time()-start))
-    guess = kehys.solve(ref, scalarization='guess')
-    print('Solved 3/3.')
-    print('Optimization done. Time since start {} sec'.format(time()-start))
+    logger.info('Initialized. Time since start {:2.0f} sec'.
+                format(time()-start))
+    nclust = 150
+    logger.info('Clustering...')
+    kehys.cluster(nclust=nclust)
+    logger.info('Clustered. Time since start {:2.0f} sec'.format(time()-start))
 
-    print('Using ideal: {} and nadir: {}'.format(kehys.ideal, kehys.nadir))
-    print(kehys.values(model=asf.model))
-    print(kehys.values(model=stom.model))
-    print(kehys.values(model=guess.model))
+    ref = np.array((0, 0, kehys.ideal[2], 0))
+
+    logger.info('Using ideal: {} and nadir: {}'.
+                format(kehys.ideal, kehys.nadir))
+    logger.info('Solving...')
+    asf = kehys.solve(ref)
+    logger.info('Solved 1/3.  Time since start {:2.0f} sec'.
+                format(time()-start))
+    stom = kehys.solve(ref, scalarization='stom')
+    logger.info('Solved 2/3.  Time since start {:2.0f} sec'.
+                format(time()-start))
+    guess = kehys.solve(ref, scalarization='guess')
+    logger.info('Solved 3/3.')
+    logger.info('Optimization done. Time since start {:2.0f} sec'.
+                format(time()-start))
+    logger.info('ASF: {}'.format(kehys.values(model=asf.model)))
+    logger.info('STOM: {}'.format(kehys.values(model=stom.model)))
+    logger.info('GUESS: {}'.format(kehys.values(model=guess.model)))
