@@ -66,8 +66,7 @@ class ReferenceFrame():
                                                         nclust,
                                                         seedn,
                                                         verbose=verbose)
-        total_weight = len(clustdata)
-        self.weights = np.array([sum(self.xtoc == i)/total_weight
+        self.weights = np.array([sum(self.xtoc == i)
                                  for i in range(nclust)])
 
         self.centers = np.array([outdata[self.xtoc == i].mean(axis=0)
@@ -101,8 +100,8 @@ class Solver():
         self.model = model
         self.opt = SolverFactory(solver)
 
-    def solve(self):
-        return self.opt.solve(self.model)
+    def solve(self, output=False, keepfiles=False):
+        return self.opt.solve(self.model, tee=output, keepfiles=keepfiles)
 
 
 if __name__ == '__main__':
@@ -128,7 +127,7 @@ if __name__ == '__main__':
     logger.info('Solving...')
 
     data = kehys.centers
-    weights = kehys.weights
+    weights = kehys.weights/nclust
     ideal = kehys.ideal
     nadir = kehys.nadir
     solver_name = 'cplex'
@@ -140,51 +139,66 @@ if __name__ == '__main__':
 
     asf_solver = Solver(asf.model)
     asf_solver.solve()
-    logger.info('Solved 1/3.  Time since start {:2.0f} sec'.
-                format(time()-start))
+    logger.info('Solved 1/4.')
 
     stom_solver = Solver(stom.model)
     stom_solver.solve()
-    logger.info('Solved 2/3.  Time since start {:2.0f} sec'.
-                format(time()-start))
+    logger.info('Solved 2/4.')
 
     guess_solver = Solver(guess.model)
     guess_solver.solve()
-    logger.info('Solved 3/3.')
-
-    logger.info('Optimization done. Time since start {:2.0f} sec'.
-                format(time()-start))
+    logger.info('Solved 3/4.')
 
     asf_values = kehys.values(model=asf.model)
     stom_values = kehys.values(model=stom.model)
     guess_values = kehys.values(model=guess.model)
 
-    logger.info('ASF: {}'.format(asf_values))
-    logger.info('STOM: {}'.format(stom_values))
-    logger.info('GUESS: {}'.format(guess_values))
+# ========================== NIMBUS ====================================
 
-    logger.info('Solving NIMBUS...')
+    ''' The data must be non-normalized, so that the limit values are matching
+    during the nimbus scalarization'''
+    nimbus_centers = np.array([kehys.x_stack[kehys.xtoc == i].mean(axis=0)
+                               for i in range(nclust)])
+    nimbus_weights = kehys.weights
 
-    ''' Lets set upper limits so, that starting from the asf-result of the
-    previous problem,
-    the first objective should improve,
-    the second should stay the same,
-    the third should detorate to a limit and
-    the fourth can alter however it wants.'''
-    nimbus_ref = np.array((kehys.ideal[0],
-                           asf_values[1],
-                           1.0e+05,
-                           kehys.nadir[3]))
-    to_minmax = np.array([0, 1])
-    to_stay = np.array(())
-    to_detoriate = np.array([2])
-    limits = np.array((asf_values[0], asf_values[1], 1.0e+05))
+    ''' Lets set classification so that starting from the asf-result of the
+    previous problem, the first objective should improve, the second detoriate
+    to a 2.5e+05, the third stay the same and the fourth change freely'''
+    nimbus1_ref = np.array((kehys.ideal[0],
+                            2.5e+06,
+                            asf_values[2],
+                            kehys.nadir[3]))
 
-    nimbus = NIMBUS(ideal, nadir, nimbus_ref, data,
-                    to_minmax, to_stay, to_detoriate, weights=weights)
-    nimbus_solver = Solver(NIMBUS.model)
-    nimbus_solver.solve()
-    nimbus_values = kehys.values(model=nimbus.model)
-    logger.info('NIMBUS solved. Time since start {:2.0f} sec'.
+    ''' The classes whose 'distance' to the Pareto front are to be minized,
+    i.e. the objectives to improve as much as possible and the ones to improve
+    to a limit'''
+    minmax1 = np.array([0], dtype=int)
+
+    ''' The classes whose values are to be kept the same.'''
+    stay1 = np.array([2], dtype=int)
+
+    ''' The classes whose values are to be deteriorated to a limit'''
+    detoriate1 = np.array([1], dtype=int)
+
+    ''' Constraints for all the objectives. The given values for the classes
+    that doesn't have any constraints in the method are not considered in the
+    calculations (there still have to be some value in the array, so the
+    indexes will match)'''
+    limits1 = np.array([asf_values[0], 2.5e+06, asf_values[2], 0])
+
+    nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
+                     stay1, detoriate1, limits1, weights=nimbus_weights)
+    nimbus1_solver = Solver(nimbus1.model)
+    nimbus1_solver.solve()  # output=True, keepfiles=True)
+    nimbus1_values = kehys.values(model=nimbus1.model)
+
+    logger.info('Solved 4/4.')
+
+    logger.info('Optimization done. Time since start {:2.0f} sec'.
                 format(time()-start))
-    logger.info('NIMBUS: {}'.format(nimbus_values))
+
+    logger.info('ASF:\n{}'.format(asf_values))
+    logger.info('STOM:\n{}'.format(stom_values))
+    logger.info('GUESS:\n{}'.format(guess_values))
+
+    logger.info('From ASF, the first objective should improve, the second detoriate to a 2.5e+05, the third stay the same and the fourth change freely:\n{}'.format(nimbus1_values))
