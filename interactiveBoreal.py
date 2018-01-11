@@ -180,14 +180,8 @@ if __name__ == '__main__':
     ''' The classes whose values are to be deteriorated to a limit'''
     detoriate1 = np.array([1], dtype=int)
 
-    ''' Constraints for all the objectives. The given values for the classes
-    that doesn't have any constraints in the method are not considered in the
-    calculations (there still have to be some value in the array, so the
-    indexes will match)'''
-    limits1 = np.array([asf_values[0], 2.5e+06, asf_values[2], 0])
-
     nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
-                     stay1, detoriate1, limits1, weights=nimbus_weights)
+                     stay1, detoriate1, asf_values, weights=nimbus_weights)
     nimbus1_solver = Solver(nimbus1.model)
     nimbus1_solver.solve()  # output=True, keepfiles=True)
     nimbus1_values = kehys.values(model=nimbus1.model)
