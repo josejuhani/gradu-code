@@ -1,5 +1,5 @@
 from pyomo.environ import Objective, Param, minimize, NonNegativeIntegers
-from pyomo.environ import RangeSet, Constraint, Var
+from pyomo.environ import RangeSet, Constraint, Var, Set
 from BorealWeights import BorealWeightedProblem
 import numpy as np
 
@@ -7,7 +7,7 @@ import numpy as np
 class ASF(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, scalarization='ASF',
-                 weights=None, eps=-1, roo=0.1):
+                 weights=None, eps=0.00001, roo=0.01):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
@@ -24,10 +24,10 @@ class ASF(BorealWeightedProblem):
             return z_ideal[h]
 
         def init_nadir(model, h):
-            return z_nadir[h]
+            return z_nadir[h] - eps
 
         def init_utopia(model, h):
-            return z_ideal[h] - eps
+            return z_ideal[h] + eps
 
         def init_ref(model, h):
             return z_ref[h]
@@ -78,8 +78,10 @@ class ASF(BorealWeightedProblem):
 
 class NIMBUS(BorealWeightedProblem):
 
-    def __init__(self, z_ideal, z_nadir, z_ref, upper_limits, data,
-                 weights=None, eps=-1, roo=0.1):
+    def __init__(self, z_ideal, z_nadir, z_ref, data, to_minmax, to_stay,
+                 to_detoriate, limits, weights=None, eps=0.00001, roo=0.01):
+        ''' Limits for the to_minmax, to_stay and to_detoriate, in this order
+        '''
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
@@ -88,9 +90,16 @@ class NIMBUS(BorealWeightedProblem):
 
         model = self.model
 
-        model.k = Param(within=NonNegativeIntegers,
-                        initialize=len(z_ref))
+        model.to_minmax = Set(within=NonNegativeIntegers, initialize=to_minmax)
+        model.to_stay = Set(within=NonNegativeIntegers, initialize=to_stay)
+        model.to_detoriate = Set(within=NonNegativeIntegers,
+                                 initialize=to_detoriate)
+        model.lim = Set(within=NonNegativeIntegers,
+                        initialize=np.concatenate((to_minmax,
+                                                   to_stay,
+                                                   to_detoriate)))
 
+        model.k = Param(within=NonNegativeIntegers, initialize=len(z_ref))
         model.H = RangeSet(0, model.k-1)
 
         def init_ideal(model, h):
@@ -98,42 +107,42 @@ class NIMBUS(BorealWeightedProblem):
         model.ideal = Param(model.H, initialize=init_ideal)
 
         def init_nadir(model, h):
-            return z_nadir[h]
+            return z_nadir[h] - eps
         model.nadir = Param(model.H, initialize=init_nadir)
 
         def init_utopia(model, h):
-            return z_ideal[h] - eps
+            return z_ideal[h] + eps
         model.utopia = Param(model.H, initialize=init_utopia)
 
         def init_ref(model, h):
             return z_ref[h]
         model.ref = Param(model.H, initialize=init_ref)
 
-        def init_upper(model, h):
-            return upper_limits[h]
-        model.upper_limits = Param(model.H, initialize=init_upper)
+        def init_limits(model, i):
+            return limits[i]
+        model.limits = Param(model.lim, initialize=init_limits)
 
         model.roo = roo
         model.maximum = Var()
 
-        def nimbusconst(model, h):
-            ''' Nimbus constraint: Just set upper limits for all the objectives.
-            Works when all the upper limits set properly according to the
-            Nimbus method'''
-            return self.obj_fun(model, data)[h] <= model.upper_limits[h]
+        def nimbusconst_max(model, i):
+            ''' Nimbus constraint: Set lower limits for all the objectives,
+            because improving means now maximizing. Works when all the
+            lower limits set properly as opposite to the Nimbus method'''
+            return self.obj_fun(model, data)[i] >= model.limits[i]
 
-        model.ConstraintNimbus = Constraint(model.H, rule=nimbusconst)
+        model.ConstraintNimbus = Constraint(model.lim, rule=nimbusconst_max)
 
-        def minmaxconst(model, h):
+        def minmaxconst(model, i):
             ''' Constraint: The new "maximum" variable, that will be minimized
             in the optimization, must be greater than any of the original
             divisions used in original ASF formulation.'''
             return model.maximum >= \
-                np.divide(np.subtract(self.obj_fun(model, data)[h],
-                                      model.ref[h]),
-                          model.nadir[h] - model.utopia[h])
+                np.divide(np.subtract(self.obj_fun(model, data)[i],
+                                      model.ref[i]),
+                          np.subtract(model.nadir[i], model.utopia[i]))
 
-        model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
+        model.ConstraintMax = Constraint(model.to_minmax, rule=minmaxconst)
 
         def asf_fun(model):
             return model.maximum \
