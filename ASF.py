@@ -79,9 +79,16 @@ class ASF(BorealWeightedProblem):
 class NIMBUS(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, to_minmax, to_stay,
-                 to_detoriate, limits, weights=None, eps=0.00001, roo=0.01):
-        ''' Limits for the to_minmax, to_stay and to_detoriate, in this order
-        '''
+                 to_detoriate, curr_values, weights=None, eps=0.00001,
+                 roo=0.01):
+        ''' Implements the NIMBUS method.
+        Ideal, nadir and ref vectors of equal length
+        data,         data without normalization
+        to_minmax,    array of indices for the objectives to be improved
+        to_stay,      array of indices for the objectives to stay the same
+        to_detoriate, array of indices for the objectives to detoriate
+                      to a limit
+        curr_values,  current values of all the objectives as a vector'''
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
@@ -98,6 +105,10 @@ class NIMBUS(BorealWeightedProblem):
                         initialize=np.concatenate((to_minmax,
                                                    to_stay,
                                                    to_detoriate)))
+        limits = np.zeros(len(z_ref))
+        limits[to_minmax] = curr_values[to_minmax]
+        limits[to_stay] = curr_values[to_stay]
+        limits[to_detoriate] = z_ref[to_detoriate]
 
         model.k = Param(within=NonNegativeIntegers, initialize=len(z_ref))
         model.H = RangeSet(0, model.k-1)
