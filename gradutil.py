@@ -87,9 +87,8 @@ def res_to_list(model):
 
 
 def cluster_to_value(data, cluster_list, weights):
-    return sum([
-        data[ind, int(cluster_list[ind])] * weights[ind]
-        for ind in range(len(cluster_list))])
+    return sum([data[ind, int(cluster_list[ind])] * weights[ind]
+                for ind in range(len(cluster_list))])
 
 
 def clusters_to_origin(data, xtoc, cluster_list):
@@ -160,7 +159,7 @@ def calc_ideal_n_nadir(data, xtoc=None, weights=None):
                   for j in range(len(problems))]
     else:
         payoff = [[np.sum(cluster_to_value(data[:, :, i],
-                                           res_to_list(problems[i].model),
+                                           res_to_list(problems[j].model),
                                            weights))
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
