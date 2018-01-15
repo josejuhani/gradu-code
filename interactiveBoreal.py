@@ -127,7 +127,7 @@ if __name__ == '__main__':
     logger.info('Solving...')
 
     data = kehys.centers
-    weights = kehys.weights/nclust
+    weights = kehys.weights/len(kehys.x_norm)
     ideal = kehys.ideal
     nadir = kehys.nadir
     solver_name = 'cplex'
@@ -137,15 +137,15 @@ if __name__ == '__main__':
     guess = ASF(ideal, nadir, ref, data, weights=weights,
                 scalarization='guess')
 
-    asf_solver = Solver(asf.model)
+    asf_solver = Solver(asf.model, solver=solver_name)
     asf_solver.solve()
     logger.info('Solved 1/4.')
 
-    stom_solver = Solver(stom.model)
+    stom_solver = Solver(stom.model, solver=solver_name)
     stom_solver.solve()
     logger.info('Solved 2/4.')
 
-    guess_solver = Solver(guess.model)
+    guess_solver = Solver(guess.model, solver=solver_name)
     guess_solver.solve()
     logger.info('Solved 3/4.')
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
     nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
                      stay1, detoriate1, asf_values, weights=nimbus_weights)
-    nimbus1_solver = Solver(nimbus1.model)
+    nimbus1_solver = Solver(nimbus1.model, solver=solver_name)
     nimbus1_solver.solve()  # output=True, keepfiles=True)
     nimbus1_values = kehys.values(model=nimbus1.model)
 
