@@ -29,10 +29,10 @@ class ReferenceFrame():
         n_deadwood = gradutil.nan_to_bau(deadwood)
         n_ha = gradutil.nan_to_bau(ha)
 
-        norm_revenue = gradutil.normalize(n_revenue)
-        norm_carbon = gradutil.normalize(n_carbon)
-        norm_deadwood = gradutil.normalize(n_deadwood)
-        norm_ha = gradutil.normalize(n_ha)
+        norm_revenue = gradutil.normalize(n_revenue.values)
+        norm_carbon = gradutil.normalize(n_carbon.values)
+        norm_deadwood = gradutil.normalize(n_deadwood.values)
+        norm_ha = gradutil.normalize(n_ha.values)
 
         self.x = pd.concat((n_revenue, n_carbon, n_deadwood, n_ha), axis=1)
         self.x_stack = np.dstack((n_revenue, n_carbon, n_deadwood, n_ha))
