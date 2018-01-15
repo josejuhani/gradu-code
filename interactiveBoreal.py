@@ -9,9 +9,9 @@ class ReferenceFrame():
     def __init__(self, stock_ideal=True):
         ''' Initialize the Boreal Forest problem. Reads the data from
         the files to the variables and normalizes the data to the 0-1
-        scale. Sets ideal and nadir values either from the stock (stock_ideal)
-        or calculates them (which takes about 15 min)
-        Variabels available after initialization:
+        scale. Sets ideal and nadir values either from the stock
+        (stock_ideal) or calculates them (which takes about 15 min)
+        Variables available after initialization:
         x:            original revenue, carbon, deadwood and ha values
                       in one 29666 x 28 array
         x_stack:      original revenue, carbon, deadwood and ha values
@@ -43,17 +43,19 @@ class ReferenceFrame():
 
     def cluster(self, clustdata=None, outdata=None, nclust=50,
                 seedn=1, verbose=0):
-        ''' Clusters the given data using kmeans algorithm and forms the centers
-        for the clustering with another given data.
-        clustdata N x dim data used in clustering, if no data given used
-                  normalized data from the boreal files (self.x_norm)
-        outdata   N x dim data used for assigning cluster centers after getting
-                  clusters using clustdata, if no data given uses normalized
-                  stacked boreal data (self.x_norm_stack)
+        ''' Clusters the given data using kmeans algorithm and forms
+        the centers for the clustering with another given data.
+        clustdata N x dim data used in clustering, if no data given
+                  used normalized data from the boreal files
+                  (self.x_norm)
+        outdata   N x dim data used for assigning cluster centers after
+                  getting clusters using clustdata, if no data given
+                  uses normalized stacked boreal data
+                  (self.x_norm_stack)
         nclust    Number of clusters, default 50
         seedn     Random seed (for clustering)
-        verbose   verbosity of used kmeans algorithm, default 0: 0 no output,
-                  2 extensive output
+        verbose   verbosity of used kmeans algorithm,
+                  default 0: 0 no output, 2 extensive output
         "Saves" variables xtoc, dist, weights and centers
 
         return centers, weights and xtoc
@@ -75,12 +77,13 @@ class ReferenceFrame():
         return self.centers, self.weights, self.xtoc
 
     def values(self, data=None, xtoc=None, model=None):
-        ''' Gives numerical values for a solved model, corresponding data and
-        xtoc vector.
-        data  Data to calculate values corresponding to the variables of the
-              model
-        xtoc  Relation between clusters and units in data (if clusters used in
-              modelling), default self.xtoc from clustering method
+        ''' Gives numerical values for a solved model, corresponding
+        data and xtoc vector.
+        data  Data to calculate values corresponding to the variables
+              of the model
+        xtoc  Relation between clusters and units in data (if clusters
+              used in modelling), default self.xtoc from clustering
+              method
         model Model to read optimal variable values from
         Returns the numerical values of objectives
         '''
@@ -155,23 +158,24 @@ if __name__ == '__main__':
 
 # ========================== NIMBUS ====================================
 
-    ''' The data must be non-normalized, so that the limit values are matching
-    during the nimbus scalarization'''
+    ''' The data must be non-normalized, so that the limit values are
+    matching during the nimbus scalarization'''
     nimbus_centers = np.array([kehys.x_stack[kehys.xtoc == i].mean(axis=0)
                                for i in range(nclust)])
     nimbus_weights = kehys.weights
 
-    ''' Lets set classification so that starting from the asf-result of the
-    previous problem, the first objective should improve, the second detoriate
-    to a 2.5e+05, the third stay the same and the fourth change freely'''
+    ''' Lets set classification so that starting from the asf-result
+    of the previous problem, the first objective should improve, the
+    second detoriate to a 2.5e+05, the third stay the same and the
+    fourth change freely'''
     nimbus1_ref = np.array((kehys.ideal[0],
                             2.5e+06,
                             asf_values[2],
                             kehys.nadir[3]))
 
-    ''' The classes whose 'distance' to the Pareto front are to be minized,
-    i.e. the objectives to improve as much as possible and the ones to improve
-    to a limit'''
+    ''' The classes whose 'distance' to the Pareto front are to be
+    minized, i.e. the objectives to improve as much as possible and
+    the ones to improve to a limit'''
     minmax1 = np.array([0], dtype=int)
 
     ''' The classes whose values are to be kept the same.'''
