@@ -27,7 +27,7 @@ class BorealWeightedProblem(object):
         model.J = RangeSet(0, model.m-1)
 
         # Initialize all x_ij = 0.0, when j != 0, and all x_i0 = 1.0
-        model.x = Var(model.I, model.J, domain=Binary, initialize=0.0)
+        model.x = Var(model.I, model.J, domain=Binary, initialize=0)
         for i in model.I:
             model.x[i, 0].value = 1.0
 
