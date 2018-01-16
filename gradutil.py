@@ -96,15 +96,18 @@ def clusters_to_origin(data, xtoc, cluster_list):
                 for ind in range(len(cluster_list))])
 
 
-def model_to_real_values(data, xtoc, model):
-    return clusters_to_origin(data, xtoc, res_to_list(model))
+def model_to_real_values(data, model, xtoc=None):
+    if xtoc is None:
+        return sum(values_to_list(model, data))
+    else:
+        return clusters_to_origin(data, xtoc, res_to_list(model))
 
 
-def values_to_list(problem, data):
+def values_to_list(model, data):
     lst = []
-    for i in problem.model.I:
-        for j in problem.model.J:
-            if problem.model.x[i, j].value == 1:
+    for i in model.I:
+        for j in model.J:
+            if model.x[i, j].value == 1:
                 lst.append(data[i, j])
     return lst
 
