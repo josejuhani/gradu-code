@@ -78,7 +78,8 @@ class ReferenceFrame():
         self.weights = np.array([sum(self.xtoc == i)
                                  for i in range(nclust)])
 
-        self.centers = np.array([outdata[self.xtoc == i].mean(axis=0)
+        self.centers = np.array([outdata[
+            np.argmin(self.dist[self.xtoc == i])]
                                  for i in range(nclust)])
 
         return self.centers, self.weights, self.xtoc
@@ -100,7 +101,7 @@ class ReferenceFrame():
             xtoc = self.xtoc
         if model is None:
             model = self.SF.model
-        return gradutil.model_to_real_values(data, xtoc, model)
+        return gradutil.model_to_real_values(data, model, xtoc)
 
 
 class Solver():
