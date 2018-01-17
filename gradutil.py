@@ -100,7 +100,7 @@ def model_to_real_values(data, model, xtoc=None):
     if xtoc is None:
         return sum(values_to_list(model, data))
     else:
-        return clusters_to_origin(data, res_to_list(model), xtoc)
+        return clusters_to_origin(data, xtoc, res_to_list(model))
 
 
 def values_to_list(model, data):
@@ -135,10 +135,10 @@ def cNopt(orig_data, clust_data, opt_data, opt, nclust='10', seed=2):
     problem1, problem2, problem3, problem4 = optimize_all(opt_x,
                                                           weights,
                                                           opt)
-    res1 = model_to_real_values(orig_data[:, :7], xtoc, problem1[0].model)
-    res2 = model_to_real_values(orig_data[:, 7:14], xtoc, problem2[0].model)
-    res3 = model_to_real_values(orig_data[:, 14:21], xtoc, problem3[0].model)
-    res4 = model_to_real_values(orig_data[:, 21:], xtoc, problem4[0].model)
+    res1 = model_to_real_values(orig_data[:, :7], problem1[0].model, xtoc)
+    res2 = model_to_real_values(orig_data[:, 7:14], problem2[0].model, xtoc)
+    res3 = model_to_real_values(orig_data[:, 14:21], problem3[0].model, xtoc)
+    res4 = model_to_real_values(orig_data[:, 21:], problem4[0].model, xtoc)
 
     return res1, res2, res3, res4
 
@@ -161,9 +161,9 @@ def calc_ideal_n_nadir(data, xtoc=None, weights=None):
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
     else:
-        payoff = [[model_to_real_values(data[:, :, i],
-                                        problems[j].model,
-                                        xtoc)
+        payoff = [[cluster_to_value(data[:, :, i],
+                                    res_to_list(problems[j].model),
+                                    weights)
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
 
