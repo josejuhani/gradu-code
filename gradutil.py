@@ -100,7 +100,7 @@ def model_to_real_values(data, model, xtoc=None):
     if xtoc is None:
         return sum(values_to_list(model, data))
     else:
-        return clusters_to_origin(data, xtoc, res_to_list(model))
+        return clusters_to_origin(data, res_to_list(model), xtoc)
 
 
 def values_to_list(model, data):
@@ -161,11 +161,12 @@ def calc_ideal_n_nadir(data, xtoc=None, weights=None):
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
     else:
-        payoff = [[np.sum(cluster_to_value(data[:, :, i],
-                                           res_to_list(problems[j].model),
-                                           weights))
+        payoff = [[model_to_real_values(data[:, :, i],
+                                        problems[j].model,
+                                        xtoc)
                    for i in range(np.shape(data)[-1])]
                   for j in range(len(problems))]
+
     ideal = np.max(payoff, axis=0)
     nadir = np.min(payoff, axis=0)
     return ideal, nadir
