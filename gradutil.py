@@ -60,6 +60,15 @@ def normalize(data):
     return norm_data
 
 
+def new_normalize(data):
+    norm_data = data.copy()
+    norm_data -= np.min(norm_data)
+    with np.errstate(invalid='ignore'):
+        normax = np.max(norm_data)
+        norm_data = np.where(normax != 0., norm_data / normax, 0)
+    return norm_data
+
+
 def optimize_all(combined_data, weights, opt):
     problem1 = BorealWeightedProblem(combined_data[:, :7], weights)
     res1 = opt.solve(problem1.model, False)
