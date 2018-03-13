@@ -1,8 +1,9 @@
-import gradutil
+import gradutil as gu
 from pyomo.opt import SolverFactory
 import numpy as np
 import pandas as pd
 from ASF import ASF, NIMBUS
+from scipy.spatial.distance import euclidean
 
 
 class ReferenceFrame():
@@ -17,22 +18,20 @@ class ReferenceFrame():
         x_stack:      original revenue, carbon, deadwood and ha values
                       in one (stacked) 29666 x 7 x 4 array
         x_norm:       same as x but values normalized to 0-1 scale
-                      column wise
         x_norm_stack: same as x_stack but values normalized to 0-1
-                      scale column wise
         ideal:        Ideal vector of the problem
         nadir:        Nadir vector of the problem
         '''
-        revenue, carbon, deadwood, ha = gradutil.init_boreal()
-        n_revenue = gradutil.nan_to_bau(revenue)
-        n_carbon = gradutil.nan_to_bau(carbon)
-        n_deadwood = gradutil.nan_to_bau(deadwood)
-        n_ha = gradutil.nan_to_bau(ha)
+        revenue, carbon, deadwood, ha = gu.init_boreal()
+        n_revenue = gu.nan_to_bau(revenue)
+        n_carbon = gu.nan_to_bau(carbon)
+        n_deadwood = gu.nan_to_bau(deadwood)
+        n_ha = gu.nan_to_bau(ha)
 
-        norm_revenue = gradutil.normalize(n_revenue.values)
-        norm_carbon = gradutil.normalize(n_carbon.values)
-        norm_deadwood = gradutil.normalize(n_deadwood.values)
-        norm_ha = gradutil.normalize(n_ha.values)
+        norm_revenue = gu.new_normalize(n_revenue.values)
+        norm_carbon = gu.new_normalize(n_carbon.values)
+        norm_deadwood = gu.new_normalize(n_deadwood.values)
+        norm_ha = gu.new_normalize(n_ha.values)
 
         self.x = pd.concat((n_revenue, n_carbon, n_deadwood, n_ha), axis=1)
         self.x_stack = np.dstack((n_revenue, n_carbon, n_deadwood, n_ha))
@@ -43,10 +42,10 @@ class ReferenceFrame():
                                        norm_deadwood, norm_ha))
 
         if stock_ideal:
-            self.ideal = gradutil.ideal(False)
-            self.nadir = gradutil.nadir(False)
+            self.ideal = gu.ideal(False)
+            self.nadir = gu.nadir(False)
         else:
-            self.ideal, self.nadir = gradutil.calc_ideal_n_nadir(self.x_stack)
+            self.ideal, self.nadir = gu.calc_ideal_n_nadir(self.x_stack)
 
     def cluster(self, clustdata=None, outdata=None, nclust=50,
                 seedn=1, verbose=0):
@@ -71,16 +70,22 @@ class ReferenceFrame():
             clustdata = self.x_norm
         if outdata is None:
             outdata = self.x_norm_stack
-        self.c, self.xtoc, self.dist = gradutil.cluster(clustdata,
-                                                        nclust,
-                                                        seedn,
-                                                        verbose=verbose)
+        self.c, self.xtoc, self.dist = gu.cluster(clustdata,
+                                                  nclust,
+                                                  seedn,
+                                                  verbose=verbose)
         self.weights = np.array([sum(self.xtoc == i)
-                                 for i in range(nclust)])
+                                 for i in range(nclust)
+                                 if sum(self.xtoc == i) > 0])
 
         self.centers = np.array([outdata[
-            np.argmin(self.dist[self.xtoc == i])]
-                                 for i in range(nclust)])
+            min(np.array(range(len(self.xtoc)))[self.xtoc == i],
+                key=lambda index: euclidean(clustdata[index],
+                                            np.mean(clustdata[
+                                                self.xtoc == i],
+                                                    axis=0)))]
+                                 for i in range(nclust)
+                                 if sum(self.xtoc == i) > 0])
 
         return self.centers, self.weights, self.xtoc
 
@@ -101,7 +106,7 @@ class ReferenceFrame():
             xtoc = self.xtoc
         if model is None:
             model = self.SF.model
-        return gradutil.model_to_real_values(data, model, xtoc)
+        return gu.model_to_real_values(data, model, xtoc)
 
 
 class Solver():
@@ -126,7 +131,8 @@ if __name__ == '__main__':
     kehys = ReferenceFrame()
     logger.info('Initialized. Time since start {:2.0f} sec'.
                 format(time()-start))
-    nclust = 150
+    nclust = 300
+    seedn = 5
     logger.info('Clustering...')
     kehys.cluster(nclust=nclust)
     logger.info('Clustered. Time since start {:2.0f} sec'.format(time()-start))
@@ -141,11 +147,14 @@ if __name__ == '__main__':
     weights = kehys.weights/len(kehys.x_norm)
     ideal = kehys.ideal
     nadir = kehys.nadir
+    nvar = len(kehys.x_norm)
     solver_name = 'cplex'
 
-    asf = ASF(ideal, nadir, ref, data, weights=weights, scalarization='asf')
-    stom = ASF(ideal, nadir, ref, data, weights=weights, scalarization='stom')
-    guess = ASF(ideal, nadir, ref, data, weights=weights,
+    asf = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
+              scalarization='asf')
+    stom = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
+               scalarization='stom')
+    guess = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
                 scalarization='guess')
 
     asf_solver = Solver(asf.model, solver=solver_name)
@@ -163,6 +172,10 @@ if __name__ == '__main__':
     asf_values = kehys.values(model=asf.model)
     stom_values = kehys.values(model=stom.model)
     guess_values = kehys.values(model=guess.model)
+
+    logger.info('ASF:\n{}'.format(asf_values))
+    logger.info('STOM:\n{}'.format(stom_values))
+    logger.info('GUESS:\n{}'.format(guess_values))
 
 # ========================== NIMBUS ====================================
 
@@ -193,7 +206,8 @@ if __name__ == '__main__':
     detoriate1 = np.array([1], dtype=int)
 
     nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
-                     stay1, detoriate1, asf_values, weights=nimbus_weights)
+                     stay1, detoriate1, asf_values, weights=nimbus_weights,
+                     nvar=nvar)
     nimbus1_solver = Solver(nimbus1.model, solver=solver_name)
     nimbus1_solver.solve()  # output=True, keepfiles=True)
     nimbus1_values = kehys.values(model=nimbus1.model)
@@ -203,8 +217,8 @@ if __name__ == '__main__':
     logger.info('Optimization done. Time since start {:2.0f} sec'.
                 format(time()-start))
 
-    logger.info('ASF:\n{}'.format(asf_values))
-    logger.info('STOM:\n{}'.format(stom_values))
-    logger.info('GUESS:\n{}'.format(guess_values))
 
-    logger.info('From ASF, the first objective should improve, the second detoriate to a 2.5e+05, the third stay the same and the fourth change freely:\n{}'.format(nimbus1_values))
+    logger.info("""From ASF, the first objective should improve,\n
+    the second detoriate to a 2.5e+05, \n
+    the third stay the same and the fourth change freely:\n
+    {}""".format(nimbus1_values))
