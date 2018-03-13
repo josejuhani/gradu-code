@@ -47,6 +47,32 @@ def init_boreal():
     return revenue, carbon, deadwood, HA
 
 
+def init_norms():
+    revenue, carbon, deadwood, ha = init_boreal()
+    n_revenue = nan_to_bau(revenue)
+    n_carbon = nan_to_bau(carbon)
+    n_deadwood = nan_to_bau(deadwood)
+    n_ha = nan_to_bau(ha)
+    norm_revenue = new_normalize(n_revenue)
+    norm_carbon = new_normalize(n_carbon)
+    norm_deadwood = new_normalize(n_deadwood)
+    norm_ha = new_normalize(n_ha)
+    x = np.concatenate((n_revenue, n_carbon, n_deadwood, n_ha), axis=1)
+    x_norm = np.concatenate((norm_revenue,
+                             norm_carbon,
+                             norm_deadwood,
+                             norm_ha), axis=1)
+    x_stack = np.dstack((n_revenue, n_carbon, n_deadwood, n_ha))
+    x_norm_stack = np.dstack((norm_revenue,
+                              norm_carbon,
+                              norm_deadwood,
+                              norm_ha))
+    return {'x': x,
+            'x_norm': x_norm,
+            'x_stack': x_stack,
+            'x_norm_stack': x_norm_stack}
+
+
 def normalize(data):
     norm_data = data.copy()
     inds = np.where(np.isnan(norm_data))
@@ -142,7 +168,8 @@ def cluster(data, nclust, seed, delta=.0001, maxiter=100,
 
 def cNopt(orig_data, clust_data, opt_data, opt, nclust='10', seed=2):
     c, xtoc, dist = cluster(clust_data, nclust, seed, verbose=0)
-    weights = np.array([sum(xtoc == i) for i in range(len(c))])
+    nvar = len(orig_data)
+    weights = np.array([sum(xtoc == i) for i in range(len(c))])/nvar
     opt_x = np.array([opt_data[xtoc == i].mean(axis=0)
                       for i in range(nclust)])
     problem1, problem2, problem3, problem4 = optimize_all(opt_x,
