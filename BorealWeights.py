@@ -9,13 +9,19 @@ import numpy as np
 
 class BorealWeightedProblem(object):
 
-    def __init__(self, data, weights=None, objective=True):
+    def __init__(self, data, weights=None, nvar=None, objective=True):
+        if nvar is None:
+            nvar = len(data)
         if weights is None:
-            weights = np.ones(len(data))
+            weights = np.ones(len(data))/nvar
         if len(data) != len(weights):
             print("Data and weights don't match in length")
-            exit(1)
+            return
         model = ConcreteModel()
+
+        # Number of original variables
+        model.nvar = Param(within=NonNegativeIntegers,
+                           initialize=nvar)
         # Number of lines in data
         model.n = Param(within=NonNegativeIntegers,
                         initialize=np.shape(data)[0])
@@ -56,14 +62,16 @@ class BorealWeightedProblem(object):
         self.model = model
         self._modelled = True
 
-    def obj_fun(self, model, c=None, w=None):
+    def obj_fun(self, model, c=None, w=None, nvar=None):
         '''Objective function: Formulate problem as binary problem.
-        \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}'''
+        \sum_{i=1}^{n} \sum_{j=1}^{m} w_{i}*c_{ij}*x_{ij}*n'''
         if c is None:
             c = model.c
         if w is None:
             w = model.w
-        return np.sum((np.sum((np.multiply(model.x[i, j], c[i, j]*w[i])
+        if nvar is None:
+            nvar = model.nvar
+        return np.sum((np.sum((np.multiply(model.x[i, j]*nvar, c[i, j]*w[i])
                                for i in model.I),
                               axis=0)
                       for j in model.J),
