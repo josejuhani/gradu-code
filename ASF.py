@@ -93,7 +93,7 @@ class NIMBUS(BorealWeightedProblem):
             print("Length of given vectors don't match")
             return
 
-        super().__init__(data, weights, False)
+        super().__init__(data, weights, nvar, False)
 
         model = self.model
 
