@@ -53,10 +53,10 @@ def init_norms():
     n_carbon = nan_to_bau(carbon)
     n_deadwood = nan_to_bau(deadwood)
     n_ha = nan_to_bau(ha)
-    norm_revenue = new_normalize(n_revenue)
-    norm_carbon = new_normalize(n_carbon)
-    norm_deadwood = new_normalize(n_deadwood)
-    norm_ha = new_normalize(n_ha)
+    norm_revenue = new_normalize(n_revenue.values)
+    norm_carbon = new_normalize(n_carbon.values)
+    norm_deadwood = new_normalize(n_deadwood.values)
+    norm_ha = new_normalize(n_ha.values)
     x = np.concatenate((n_revenue, n_carbon, n_deadwood, n_ha), axis=1)
     x_norm = np.concatenate((norm_revenue,
                              norm_carbon,
