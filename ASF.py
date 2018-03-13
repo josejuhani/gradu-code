@@ -7,12 +7,12 @@ import numpy as np
 class ASF(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, scalarization='ASF',
-                 weights=None, eps=0.00001, roo=0.01):
+                 weights=None, nvar=None, eps=0.00001, roo=0.01):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
 
-        super().__init__(data, weights, False)
+        super().__init__(data, weights, nvar, False)
         model = self.model
 
         # Initialize ASF parameters
@@ -79,8 +79,8 @@ class ASF(BorealWeightedProblem):
 class NIMBUS(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, to_minmax, to_stay,
-                 to_detoriate, curr_values, weights=None, eps=0.00001,
-                 roo=0.01):
+                 to_detoriate, curr_values, weights=None, nvar=None,
+                 eps=0.00001, roo=0.01):
         ''' Implements the NIMBUS method.
         Ideal, nadir and ref vectors of equal length
         data,         data without normalization
