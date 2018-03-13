@@ -95,6 +95,10 @@ def res_to_list(model):
     return reslist
 
 
+def res_value(res):
+    return res['Problem'][0]['Upper bound']
+
+
 def cluster_to_value(data, cluster_list, weights):
     return sum([data[ind, int(cluster_list[ind])] * weights[ind]
                 for ind in range(len(cluster_list))])
