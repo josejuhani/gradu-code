@@ -36,16 +36,31 @@ class ReferenceFrame():
         self.x = pd.concat((n_revenue, n_carbon, n_deadwood, n_ha), axis=1)
         self.x_stack = np.dstack((n_revenue, n_carbon, n_deadwood, n_ha))
 
+        lbounds = np.min(np.min(self.x_stack, axis=1), axis=0)
+        ubounds = np.max(np.max(self.x_stack, axis=1), axis=0)
+        self.limits = np.array((lbounds, ubounds-lbounds))
+
         self.x_norm = np.concatenate((norm_revenue, norm_carbon,
                                       norm_deadwood, norm_ha), axis=1)
-        self.x_norm_stack = np.dstack((norm_revenue, norm_carbon,
-                                       norm_deadwood, norm_ha))
+        self.x_norm_stack = self.normalize_ref(self.x_stack)
 
         if stock_ideal:
             self.ideal = gu.ideal(False)
             self.nadir = gu.nadir(False)
         else:
             self.ideal, self.nadir = gu.calc_ideal_n_nadir(self.x_stack)
+
+    def normalize_ref(self, ref):
+        ''' Normalizes the given reference point with the same scaling
+        that is used for the data that is used in the optimization and
+        clustering also. Will NOT alter the given point itself'''
+        new_ref = ref.copy()
+        new_ref -= self.limits[0]
+        with np.errstate(invalid='ignore'):
+            new_ref = np.where(self.limits[1] != 0.,
+                               new_ref / self.limits[1],
+                               0)
+        return new_ref
 
     def cluster(self, clustdata=None, outdata=None, nclust=50,
                 seedn=1, verbose=0):
@@ -89,7 +104,7 @@ class ReferenceFrame():
 
         return self.centers, self.weights, self.xtoc
 
-    def values(self, data=None, xtoc=None, model=None):
+    def values(self, data=None, weights=None, model=None):
         ''' Gives numerical values for a solved model, corresponding
         data and xtoc vector.
         data  Data to calculate values corresponding to the variables
@@ -102,11 +117,11 @@ class ReferenceFrame():
         '''
         if data is None:
             data = self.x_stack
-        if xtoc is None:
-            xtoc = self.xtoc
+        if weights is None:
+            weights = self.weights
         if model is None:
             model = self.SF.model
-        return gu.model_to_real_values(data, model, xtoc)
+        return gu.cluster_to_value(data, gu.res_to_list(model), weights)
 
 
 class Solver():
@@ -122,32 +137,39 @@ class Solver():
 
 if __name__ == '__main__':
     from time import time
+    from datetime import timedelta
     import logging
+
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     start = time()
     logger.info('Started')
     logger.info('Initializing...')
     kehys = ReferenceFrame()
-    logger.info('Initialized. Time since start {:2.0f} sec'.
-                format(time()-start))
+    logger.info('Initialized. Time since start {}'.
+                format(timedelta(seconds=time()-start)))
     nclust = 300
     seedn = 5
     logger.info('Clustering...')
     kehys.cluster(nclust=nclust)
-    logger.info('Clustered. Time since start {:2.0f} sec'.format(time()-start))
+    logger.info('Clustered. Time since start {}'.
+                format(timedelta(seconds=time()-start)))
 
-    ref = np.array((0, 0, kehys.ideal[2], 0))
+    init_ref = np.array((0, 0, kehys.ideal[2], 0))
+    ref = kehys.new_ref(init_ref)
 
     logger.info('Using ideal: {} and nadir: {}'.
                 format(kehys.ideal, kehys.nadir))
     logger.info('Solving...')
 
     data = kehys.centers
-    weights = kehys.weights/len(kehys.x_norm)
-    ideal = kehys.ideal
-    nadir = kehys.nadir
     nvar = len(kehys.x_norm)
+    weights = kehys.weights/nvar
+
+    ''' Because everything is scaled, scale these too'''
+    ideal = 1
+    nadir = 0
+
     solver_name = 'cplex'
 
     asf = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
@@ -181,19 +203,18 @@ if __name__ == '__main__':
 
     ''' The data must be non-normalized, so that the limit values are
     matching during the nimbus scalarization'''
-    nimbus_centers = np.array([kehys.x_stack[kehys.xtoc == i].mean(axis=0)
-                               for i in range(nclust)])
-    nimbus_weights = kehys.weights
+    nimbus_centers = data
+    nimbus_weights = weights
 
     ''' Lets set classification so that starting from the asf-result
     of the previous problem, the first objective should improve, the
     second detoriate to a 2.5e+05, the third stay the same and the
     fourth change freely'''
-    nimbus1_ref = np.array((kehys.ideal[0],
-                            2.5e+06,
-                            asf_values[2],
-                            kehys.nadir[3]))
-
+    init_nimbus1_ref = np.array((kehys.ideal[0],
+                                 2.5e+06,
+                                 asf_values[2],
+                                 kehys.nadir[3]))
+    nimbus1_ref = kehys.normalize_ref(init_nimbus1_ref)
     ''' The classes whose 'distance' to the Pareto front are to be
     minized, i.e. the objectives to improve as much as possible and
     the ones to improve to a limit'''
@@ -205,8 +226,11 @@ if __name__ == '__main__':
     ''' The classes whose values are to be deteriorated to a limit'''
     detoriate1 = np.array([1], dtype=int)
 
+    '''The current starting solution, scaled'''
+    current = kehys.normalize_ref(asf_values)
+
     nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
-                     stay1, detoriate1, asf_values, weights=nimbus_weights,
+                     stay1, detoriate1, current, weights=nimbus_weights,
                      nvar=nvar)
     nimbus1_solver = Solver(nimbus1.model, solver=solver_name)
     nimbus1_solver.solve()  # output=True, keepfiles=True)
@@ -214,9 +238,8 @@ if __name__ == '__main__':
 
     logger.info('Solved 4/4.')
 
-    logger.info('Optimization done. Time since start {:2.0f} sec'.
-                format(time()-start))
-
+    logger.info('Optimization done. Time since start {}'.
+                format(timedelta(seconds=time()-start)))
 
     logger.info("""From ASF, the first objective should improve,\n
     the second detoriate to a 2.5e+05, \n
