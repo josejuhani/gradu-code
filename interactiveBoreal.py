@@ -147,19 +147,20 @@ if __name__ == '__main__':
     logger.info('Initializing...')
     kehys = ReferenceFrame()
     logger.info('Initialized. Time since start {}'.
-                format(timedelta(seconds=time()-start)))
+                format(timedelta(seconds=int(time()-start))))
     nclust = 300
     seedn = 5
     logger.info('Clustering...')
     kehys.cluster(nclust=nclust)
     logger.info('Clustered. Time since start {}'.
-                format(timedelta(seconds=time()-start)))
+                format(timedelta(seconds=int(time()-start))))
 
     init_ref = np.array((0, 0, kehys.ideal[2], 0))
-    ref = kehys.new_ref(init_ref)
+    ref = kehys.normalize_ref(init_ref)
 
     logger.info('Using ideal: {} and nadir: {}'.
                 format(kehys.ideal, kehys.nadir))
+    logger.info('Reference point: {}.'.format(init_ref))
     logger.info('Solving...')
 
     data = kehys.centers
@@ -167,8 +168,8 @@ if __name__ == '__main__':
     weights = kehys.weights/nvar
 
     ''' Because everything is scaled, scale these too'''
-    ideal = 1
-    nadir = 0
+    ideal = kehys.normalize_ref(kehys.ideal)
+    nadir = kehys.normalize_ref(kehys.nadir)
 
     solver_name = 'cplex'
 
@@ -201,14 +202,9 @@ if __name__ == '__main__':
 
 # ========================== NIMBUS ====================================
 
-    ''' The data must be non-normalized, so that the limit values are
-    matching during the nimbus scalarization'''
-    nimbus_centers = data
-    nimbus_weights = weights
-
     ''' Lets set classification so that starting from the asf-result
     of the previous problem, the first objective should improve, the
-    second detoriate to a 2.5e+05, the third stay the same and the
+    second detoriate to a 2.5e+06, the third stay the same and the
     fourth change freely'''
     init_nimbus1_ref = np.array((kehys.ideal[0],
                                  2.5e+06,
@@ -229,8 +225,8 @@ if __name__ == '__main__':
     '''The current starting solution, scaled'''
     current = kehys.normalize_ref(asf_values)
 
-    nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, nimbus_centers, minmax1,
-                     stay1, detoriate1, current, weights=nimbus_weights,
+    nimbus1 = NIMBUS(ideal, nadir, nimbus1_ref, data, minmax1,
+                     stay1, detoriate1, current, weights=weights,
                      nvar=nvar)
     nimbus1_solver = Solver(nimbus1.model, solver=solver_name)
     nimbus1_solver.solve()  # output=True, keepfiles=True)
@@ -239,9 +235,9 @@ if __name__ == '__main__':
     logger.info('Solved 4/4.')
 
     logger.info('Optimization done. Time since start {}'.
-                format(timedelta(seconds=time()-start)))
+                format(timedelta(seconds=int(time()-start))))
 
-    logger.info("""From ASF, the first objective should improve,\n
-    the second detoriate to a 2.5e+05, \n
-    the third stay the same and the fourth change freely:\n
+    logger.info("""From ASF, the first objective should improve,
+    the second detoriate to a 2.5e+06,
+    the third stay the same and the fourth change freely:
     {}""".format(nimbus1_values))
