@@ -125,8 +125,12 @@ def res_value(res):
     return res['Problem'][0]['Upper bound']
 
 
-def cluster_to_value(data, cluster_list, weights):
-    return sum([data[ind, int(cluster_list[ind])] * weights[ind]
+def cluster_to_value(cluster_data, cluster_list, weights):
+    ''' Returns the optimization values of the cluster, based
+    on the data of the clusters (cluster_data), the list of
+    decision variables options (cluster_list) and the proportion
+    of each cluster (weights)'''
+    return sum([cluster_data[ind, int(cluster_list[ind])] * weights[ind]
                 for ind in range(len(cluster_list))])
 
 
