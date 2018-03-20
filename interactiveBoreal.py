@@ -62,17 +62,21 @@ class ReferenceFrame():
                                0)
         return new_ref
 
-    def cluster(self, clustdata=None, outdata=None, nclust=50,
-                seedn=1, verbose=0):
+    def cluster(self, clustdata=None, optdata=None, outdata=None,
+                nclust=50, seedn=2, verbose=0):
         ''' Clusters the given data using kmeans algorithm and forms
         the centers for the clustering with another given data.
         clustdata N x dim data used in clustering, if no data given
                   used normalized data from the boreal files
                   (self.x_norm)
-        outdata   N x dim data used for assigning cluster centers after
+        optdata   N x dim data used for assigning cluster centers after
                   getting clusters using clustdata, if no data given
                   uses normalized stacked boreal data
                   (self.x_norm_stack)
+        outdata   N x dim data used for calculating the values of
+                  optimization resutls aka. the final output data, if
+                  no data given used stacked boreal data
+                  (self.x_norm)
         nclust    Number of clusters, default 50
         seedn     Random seed (for clustering)
         verbose   verbosity of used kmeans algorithm,
@@ -83,32 +87,35 @@ class ReferenceFrame():
         '''
         if clustdata is None:
             clustdata = self.x_norm
+        if optdata is None:
+            optdata = self.x_norm_stack
         if outdata is None:
-            outdata = self.x_norm_stack
+            outdata = self.x_stack
         self.c, self.xtoc, self.dist = gu.cluster(clustdata,
                                                   nclust,
                                                   seedn,
                                                   verbose=verbose)
+
         self.weights = np.array([sum(self.xtoc == i)
                                  for i in range(nclust)
                                  if sum(self.xtoc == i) > 0])
 
-        self.centers = np.array([outdata[
-            min(np.array(range(len(self.xtoc)))[self.xtoc == i],
-                key=lambda index: euclidean(clustdata[index],
-                                            np.mean(clustdata[
-                                                self.xtoc == i],
-                                                    axis=0)))]
-                                 for i in range(nclust)
-                                 if sum(self.xtoc == i) > 0])
+        indices = [min(
+            np.array(range(len(self.xtoc)))[self.xtoc == i],
+            key=lambda index: euclidean(clustdata[index],
+                                        np.mean(clustdata[self.xtoc == i],
+                                                axis=0)))
+                   for i in range(nclust) if sum(self.xtoc == i) > 0]
+        self.centers = optdata[indices]
+        self.out_centers = outdata[indices]
 
-        return self.centers, self.weights, self.xtoc
+        return self.c, self.xtoc, self.dist
 
     def values(self, data=None, weights=None, model=None):
         ''' Gives numerical values for a solved model, corresponding
-        data and xtoc vector.
+        data, weights and xtoc vector.
         data  Data to calculate values corresponding to the variables
-              of the model
+              of the model, default self.out_centers
         xtoc  Relation between clusters and units in data (if clusters
               used in modelling), default self.xtoc from clustering
               method
@@ -116,7 +123,7 @@ class ReferenceFrame():
         Returns the numerical values of objectives
         '''
         if data is None:
-            data = self.x_stack
+            data = self.out_centers
         if weights is None:
             weights = self.weights
         if model is None:
@@ -148,9 +155,18 @@ if __name__ == '__main__':
     kehys = ReferenceFrame()
     logger.info('Initialized. Time since start {}'.
                 format(timedelta(seconds=int(time()-start))))
-    nclust = 300
-    seedn = 5
+    nclust = 600
+    seedn = 6
     logger.info('Clustering...')
+    '''
+    import simplejson as json
+    with open('clusterings/new_300.json', 'r') as file:
+        clustering = json.load(file)
+    kehys.xtoc = np.array(clustering['5']['xtoc'])
+    kehys.weights = np.array([sum(kehys.xtoc == i)
+                              for i in range(nclust)
+                              if sum(kehys.xtoc == i) > 0])
+    '''
     kehys.cluster(nclust=nclust)
     logger.info('Clustered. Time since start {}'.
                 format(timedelta(seconds=int(time()-start))))
