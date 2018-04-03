@@ -167,7 +167,7 @@ if __name__ == '__main__':
                               for i in range(nclust)
                               if sum(kehys.xtoc == i) > 0])
     '''
-    kehys.cluster(nclust=nclust)
+    kehys.cluster(nclust=nclust, seedn=seedn)
     logger.info('Clustered. Time since start {}'.
                 format(timedelta(seconds=int(time()-start))))
 
