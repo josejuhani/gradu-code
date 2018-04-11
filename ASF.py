@@ -7,7 +7,8 @@ import numpy as np
 class ASF(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, scalarization='ASF',
-                 weights=None, nvar=None, eps=0.00001, roo=0.01):
+                 weights=None, nvar=None, eps=0.00001, roo=0.01,
+                 sense='minimize'):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
             return
@@ -32,22 +33,53 @@ class ASF(BorealWeightedProblem):
         def init_ref(model, h):
             return z_ref[h]
 
+        def negative(model, h, function):
+            return np.negative(function(model, h))
         model.roo = roo
 
         scalarization = scalarization.upper()
 
-        if scalarization == 'GUESS':
-            model.z1 = Param(model.H, initialize=init_nadir)
-            model.z2 = Param(model.H, initialize=init_nadir)
-            model.z3 = Param(model.H, initialize=init_ref)
-        elif scalarization == 'STOM':
-            model.z1 = Param(model.H, initialize=init_utopia)
-            model.z2 = Param(model.H, initialize=init_ref)
-            model.z3 = Param(model.H, initialize=init_utopia)
-        else:  # scalarization == 'ASF'
-            model.z1 = Param(model.H, initialize=init_ref)
-            model.z2 = Param(model.H, initialize=init_nadir)
-            model.z3 = Param(model.H, initialize=init_utopia)
+        if sense == 'minimize':
+            if scalarization == 'GUESS':
+                model.z1 = Param(model.H, initialize=init_nadir)
+                model.z2 = Param(model.H, initialize=init_nadir)
+                model.z3 = Param(model.H, initialize=init_ref)
+                model.z4 = Param(model.H, initialize=init_nadir)
+                model.z5 = Param(model.H, initialize=init_ref)
+            elif scalarization == 'STOM':
+                model.z1 = Param(model.H, initialize=init_utopia)
+                model.z2 = Param(model.H, initialize=init_ref)
+                model.z3 = Param(model.H, initialize=init_utopia)
+                model.z4 = Param(model.H, initialize=init_ref)
+                model.z5 = Param(model.H, initialize=init_utopia)
+            else:  # scalarization == 'ASF'
+                model.z1 = Param(model.H, initialize=init_ref)
+                model.z2 = Param(model.H, initialize=init_nadir)
+                model.z3 = Param(model.H, initialize=init_utopia)
+                model.z4 = Param(model.H, initialize=init_nadir)
+                model.z5 = Param(model.H, initialize=init_utopia)
+        else:  # sense == 'maximize'
+            if scalarization == 'GUESS':
+                model.z1 = Param(model.H, initialize=init_nadir)
+                model.z2 = Param(model.H, initialize=init_nadir)
+                model.z3 = Param(model.H, initialize=lambda x, y:
+                                 negative(x, y, function=init_ref))
+                model.z4 = Param(model.H, initialize=init_ref)
+                model.z5 = Param(model.H, initialize=init_nadir)
+            elif scalarization == 'STOM':
+                model.z1 = Param(model.H, initialize=init_utopia)
+                model.z2 = Param(model.H, initialize=init_ref)
+                model.z3 = Param(model.H, initialize=init_utopia)
+                model.z4 = Param(model.H, initialize=init_utopia)
+                model.z5 = Param(model.H, initialize=init_ref)
+            else:  # scalarization == 'ASF'
+                model.z1 = Param(model.H, initialize=init_ref)
+                model.z2 = Param(model.H, initialize=lambda x, y:
+                                 negative(x, y, function=init_nadir))
+                model.z3 = Param(model.H, initialize=lambda x, y:
+                                 negative(x, y, function=init_utopia))
+                model.z4 = Param(model.H, initialize=init_utopia)
+                model.z5 = Param(model.H, initialize=init_nadir)
 
         model.maximum = Var()
 
@@ -58,7 +90,7 @@ class ASF(BorealWeightedProblem):
             return model.maximum >= \
                 np.divide(np.subtract(self.obj_fun(model, data)[h],
                                       model.z1[h]),
-                          model.z2[h] - model.z3[h])
+                          model.z4[h] - model.z5[h])
 
         model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
 
@@ -186,8 +218,8 @@ if __name__ == '__main__':
     ide = ideal(False)
     nad = nadir(False)
     ref = np.array((0, 6, 3, 8))
-    asf = ASF(ide, nad, ref, x)
+    asf = ASF(ide, nad, ref, x, sense='maximize')
     from pyomo.opt import SolverFactory
     opt = SolverFactory('cplex')
-    opt.solve(asf.model, tee=True)
+    opt.solve(asf.model, tee=False)
     print(np.sum(values_to_list(asf, x), axis=0))
