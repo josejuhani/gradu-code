@@ -203,7 +203,6 @@ class NIMBUS(BorealWeightedProblem):
             return model.maximum \
                 + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
                                            model.utopia[h] - model.nadir[h])
-                                 # - model.utopia[h])
                                  for h in model.H])
 
         if hasattr(model, 'OBJ'):
