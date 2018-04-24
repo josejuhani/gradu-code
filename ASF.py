@@ -107,10 +107,10 @@ class ASF(BorealWeightedProblem):
         model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
 
         def asf_fun(model):
-            return model.maximum  # \
-            '''+ model.roo*sum([np.divide(self.obj_fun(model, data)[h],
+            return model.maximum \
+                + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
                                            model.z4[h] - model.z5[h])
-                                 for h in model.H])'''
+                                 for h in model.H])
 
         if hasattr(model, 'OBJ'):
             del model.OBJ  # Delete previous Objective to suppress warnings
@@ -202,7 +202,7 @@ class NIMBUS(BorealWeightedProblem):
         def asf_fun(model):
             return model.maximum \
                 + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
-                                           model.utopia[h] - model.nadir[h])
+                                           model.nadir[h] - model.utopia[h])
                                  for h in model.H])
 
         if hasattr(model, 'OBJ'):
