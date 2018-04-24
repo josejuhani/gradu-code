@@ -7,7 +7,7 @@ import numpy as np
 class ASF(BorealWeightedProblem):
 
     def __init__(self, z_ideal, z_nadir, z_ref, data, scalarization='ASF',
-                 weights=None, nvar=None, eps=0.00001, roo=0.01,
+                 weights=None, nvar=None, eps=0.01, roo=0.01,
                  sense='maximize', frees=[]):
         if len(z_ideal) != len(z_nadir) or len(z_ideal) != len(z_ref):
             print("Length of given vectors don't match")
@@ -107,10 +107,10 @@ class ASF(BorealWeightedProblem):
         model.ConstraintMax = Constraint(model.H, rule=minmaxconst)
 
         def asf_fun(model):
-            return model.maximum \
-                + model.roo*sum([np.divide(self.obj_fun(model, data)[h],
+            return model.maximum  # \
+            '''+ model.roo*sum([np.divide(self.obj_fun(model, data)[h],
                                            model.z4[h] - model.z5[h])
-                                 for h in model.H])
+                                 for h in model.H])'''
 
         if hasattr(model, 'OBJ'):
             del model.OBJ  # Delete previous Objective to suppress warnings
