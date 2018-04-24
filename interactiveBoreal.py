@@ -158,21 +158,36 @@ if __name__ == '__main__':
     nclust = 600
     seedn = 6
     logger.info('Clustering...')
-    '''
+
     import simplejson as json
-    with open('clusterings/new_300.json', 'r') as file:
+    with open('clusterings/new_600.json', 'r') as file:
         clustering = json.load(file)
-    kehys.xtoc = np.array(clustering['5']['xtoc'])
+    kehys.xtoc = np.array(clustering['6']['xtoc'])
     kehys.weights = np.array([sum(kehys.xtoc == i)
                               for i in range(nclust)
                               if sum(kehys.xtoc == i) > 0])
+    kehys.xtoc = np.array(clustering[str(seedn)]['xtoc'])
+    kehys.weights = np.array([sum(kehys.xtoc == i)
+                              for i in range(nclust)
+                              if sum(kehys.xtoc == i) > 0])
+    indices = [min(np.array(range(len(kehys.xtoc)))[kehys.xtoc == i],
+               key=lambda index: euclidean(kehys.x_norm[index],
+                                           np.mean(kehys.x_norm[kehys.xtoc == i],
+                                                   axis=0)))
+               for i in range(nclust) if sum(kehys.xtoc == i) > 0]
+    kehys.centers = kehys.x_stack[indices]
+    kehys.out_centers = kehys.x_stack[indices]
     '''
     kehys.cluster(nclust=nclust, seedn=seedn)
+    '''
     logger.info('Clustered. Time since start {}'.
                 format(timedelta(seconds=int(time()-start))))
 
-    init_ref = np.array((0, 0, kehys.ideal[2], 0))
-    ref = kehys.normalize_ref(init_ref)
+    init_ref = np.array((kehys.nadir[0],
+                         kehys.nadir[0],
+                         kehys.ideal[2],
+                         kehys.nadir[3]))
+    ref = init_ref
 
     logger.info('Using ideal: {} and nadir: {}'.
                 format(kehys.ideal, kehys.nadir))
@@ -184,8 +199,8 @@ if __name__ == '__main__':
     weights = kehys.weights/nvar
 
     ''' Because everything is scaled, scale these too'''
-    ideal = kehys.normalize_ref(kehys.ideal)
-    nadir = kehys.normalize_ref(kehys.nadir)
+    ideal = kehys.ideal
+    nadir = kehys.nadir
 
     solver_name = 'cplex'
 
@@ -194,7 +209,7 @@ if __name__ == '__main__':
     stom = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
                scalarization='stom')
     guess = ASF(ideal, nadir, ref, data, weights=weights, nvar=nvar,
-                scalarization='guess')
+                scalarization='guess', frees=[0, 2, 3])
 
     asf_solver = Solver(asf.model, solver=solver_name)
     asf_solver.solve()
@@ -226,7 +241,7 @@ if __name__ == '__main__':
                                  2.5e+06,
                                  asf_values[2],
                                  kehys.nadir[3]))
-    nimbus1_ref = kehys.normalize_ref(init_nimbus1_ref)
+    nimbus1_ref = init_nimbus1_ref
     ''' The classes whose 'distance' to the Pareto front are to be
     minized, i.e. the objectives to improve as much as possible and
     the ones to improve to a limit'''
